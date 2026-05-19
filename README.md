@@ -1,7 +1,14 @@
-# CoreStrategy Tools (סטטי)
+# Core-Pages
 
-מחשבון עסק + בונה צבעים/טוקנים — **ללא** Convex, auth או DB.  
-פריסה: אתר סטטי (`output: "export"`) → תיקיית `out/`.
+כלים סטטיים: **מחשבון עסק** ו-**בונה צבעים / טוקנים** — ללא שרת, DB או התחברות.
+
+## אתר חי (GitHub Pages)
+
+| כלי | כתובת |
+|-----|--------|
+| רשימת כלים | https://bengueta.github.io/Core-Pages/ |
+| מחשבון עסק | https://bengueta.github.io/Core-Pages/business/ |
+| צבעים וטוקנים | https://bengueta.github.io/Core-Pages/brand-colors/ |
 
 ## פיתוח מקומי
 
@@ -10,41 +17,18 @@ pnpm install
 pnpm run dev
 ```
 
-פתיחה: [http://localhost:3020](http://localhost:3020)
+http://localhost:3020 — בלי `basePath` (נתיבים בשורש).
 
-## Build
-
-```bash
-pnpm run build
-```
-
-הפלט: `out/` — להעלות ל-Cloudflare Pages / GitHub Pages / Netlify.
-
-## פריסה ל-GitHub + Cloudflare Pages
-
-1. ב-GitHub: **New repository** → שם למשל `corestrategy-tools` (public).
-2. מהתיקייה הזו:
+## Build כמו ב-GitHub Pages
 
 ```bash
-git init
-git add .
-git commit -m "Initial static tools site"
-git branch -M main
-git remote add origin https://github.com/YOUR_USER/corestrategy-tools.git
-git push -u origin main
+pnpm run build:pages
 ```
 
-3. [Cloudflare Pages](https://pages.cloudflare.com/) → Create project → Connect repo:
-   - Build command: `pnpm run build`
-   - Build output directory: `out`
-   - Node: 22
+פלט: `out/` עם `basePath` של `/Core-Pages`.
 
-4. קישור מהאתר הראשי ל-`https://<project>.pages.dev/business` וכו'.
+## פריסה
 
-## נתיבים
+Push ל-`main` מפעיל את [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
 
-| נתיב | כלי |
-|------|-----|
-| `/` | רשימת כלים |
-| `/business` | מחשבון עסק |
-| `/brand-colors` | Theme Builder |
+**פעם אחת בהגדרות הריפו:** Settings → Pages → Build and deployment → **Source: GitHub Actions**.

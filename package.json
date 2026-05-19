@@ -1,11 +1,12 @@
 {
-  "name": "corestrategy-tools",
+  "name": "core-pages",
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.24.0",
   "scripts": {
     "dev": "next dev -p 3020",
     "build": "next build",
+    "build:pages": "node scripts/build-pages.mjs",
     "start": "next start -p 3020",
     "type-check": "tsc --noEmit"
   },
