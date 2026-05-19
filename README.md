@@ -31,16 +31,10 @@ pnpm run build:pages
 
 Push ל-`main` מפעיל את [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) — בונה ודוחף לענף `gh-pages`.
 
-### חובה — אחרת כל הקישורים 404
+### דרישות
 
-1. **הריפו חייב להיות Public** (בחשבון חינם, GitHub Pages לא מפרסם אתר ציבורי מריפו Private).  
-   [Settings → General → Danger zone → Change visibility → Public](https://github.com/bengueta/Core-Pages/settings)
+1. הריפו **Public** (חינם).
+2. Push ל-`main` מפעיל workflow שדוחף ל-`gh-pages` **ומנסה להפעיל Pages אוטומטית** (API).
+3. אם עדיין 404 אחרי 3 דקות — ידנית: [Settings → Pages](https://github.com/bengueta/Core-Pages/settings/pages) → **Deploy from a branch** → `gh-pages` / `(root)` → Save.
 
-2. **הפעלת Pages** ([Settings → Pages](https://github.com/bengueta/Core-Pages/settings/pages)):
-   - **Source:** `Deploy from a branch`
-   - **Branch:** `gh-pages` · **Folder:** `/ (root)`
-   - Save — המתן 1–3 דקות
-
-3. בדוק: https://bengueta.github.io/Core-Pages/
-
-> אזהרת Node.js 20 ב-Actions **לא** גורמת ל-404 — אפשר להתעלם בינתיים.
+> אזהרת Node.js ב-Actions לא גורמת ל-404.
