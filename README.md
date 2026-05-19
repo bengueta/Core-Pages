@@ -29,6 +29,12 @@ pnpm run build:pages
 
 ## פריסה
 
-Push ל-`main` מפעיל את [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
+Push ל-`main` מפעיל את [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) — בונה ודוחף לענף `gh-pages`.
 
-**פעם אחת בהגדרות הריפו:** Settings → Pages → Build and deployment → **Source: GitHub Actions**.
+**פעם אחת** ([Settings → Pages](https://github.com/bengueta/Core-Pages/settings/pages)):
+
+1. **Build and deployment → Source:** `Deploy from a branch`
+2. **Branch:** `gh-pages` · **Folder:** `/ (root)`
+3. Save
+
+> אם קודם ניסית **GitHub Actions** כ-Source וקיבלת 404 — החלף ל-**Deploy from a branch** כמו למעלה. ה-workflow לא משתמש ב-`deploy-pages@v4`.
