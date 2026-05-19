@@ -33,8 +33,8 @@ Push ל-`main` מפעיל את [`.github/workflows/deploy-pages.yml`](.github/wo
 
 ### דרישות
 
-1. הריפו **Public** (חינם).
-2. Push ל-`main` מפעיל workflow שדוחף ל-`gh-pages` **ומנסה להפעיל Pages אוטומטית** (API).
-3. אם עדיין 404 אחרי 3 דקות — ידנית: [Settings → Pages](https://github.com/bengueta/Core-Pages/settings/pages) → **Deploy from a branch** → `gh-pages` / `(root)` → Save.
+1. הריפו **Public** (חינם) — כבר בוצע.
+2. Push ל-`main` מעדכן את ענף **`gh-pages`** (האתר הסטטי).
+3. **חובה פעם אחת:** [הפעלת Pages](docs/ENABLE_GITHUB_PAGES.md) — Settings → **Deploy from a branch** → `gh-pages` / `(root)` → Save.
 
 > אזהרת Node.js ב-Actions לא גורמת ל-404.

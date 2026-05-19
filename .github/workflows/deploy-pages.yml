@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -44,35 +42,3 @@ jobs:
           publish_dir: ./out
           publish_branch: gh-pages
           force_orphan: true
-
-      - name: Enable GitHub Pages (gh-pages branch)
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const source = { branch: "gh-pages", path: "/" };
-
-            try {
-              await github.rest.repos.createPagesSite({
-                owner,
-                repo,
-                build_type: "legacy",
-                source,
-              });
-              core.info("Created GitHub Pages site (gh-pages /).");
-            } catch (error) {
-              if (error.status === 409) {
-                await github.rest.repos.updateInformationAboutPagesSite({
-                  owner,
-                  repo,
-                  build_type: "legacy",
-                  source,
-                });
-                core.info("Updated GitHub Pages site (gh-pages /).");
-              } else {
-                throw error;
-              }
-            }
-
-            await github.rest.repos.requestPagesBuild({ owner, repo });
-            core.info("Requested Pages rebuild.");
