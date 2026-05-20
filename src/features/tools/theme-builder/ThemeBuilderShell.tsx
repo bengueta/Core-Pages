@@ -13,6 +13,29 @@ import { ExportModal } from "./ExportModal";
 
 const REFERENCE_PAGE_BLOCKS: CanvasBlock[] = buildPreviewSiteCanvasBlocks();
 
+// Extract color tokens to avoid magic numbers
+const COLORS = {
+  darkBg: "#09090b",
+  textLight: "#e4e4e7",
+  borderLight: "rgba(255,255,255,.06)",
+  bgGlass: "rgba(7,7,10,.92)",
+  linkDefault: "rgba(228,228,231,.55)",
+  linkHover: "rgba(228,228,231,.85)",
+  monoText: "rgba(228,228,231,.35)",
+  goldPrimary: "rgb(201,169,110)",
+  goldBg: "rgba(201,169,110,.95)",
+} as const;
+
+const STYLES = `
+  #theme-builder-back-link {
+    transition: color 0.2s ease-in-out;
+  }
+
+  #theme-builder-back-link:hover {
+    color: ${COLORS.linkHover};
+  }
+`;
+
 export function ThemeBuilderShell() {
   const c = useThemeBuilderController();
 
@@ -24,8 +47,8 @@ export function ThemeBuilderShell() {
       style={{
         height: "100vh",
         width: "100vw",
-        background: "#09090b",
-        color: "#e4e4e7",
+        background: COLORS.darkBg,
+        color: COLORS.textLight,
         fontFamily: "'DM Sans',sans-serif",
         fontSize: 12,
         overflow: "hidden",
@@ -33,6 +56,8 @@ export function ThemeBuilderShell() {
         flexDirection: "column",
       }}
     >
+      <style>{STYLES}</style>
+
       <div
         style={{
           height: 36,
@@ -40,29 +65,28 @@ export function ThemeBuilderShell() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 10px",
-          borderBottom: "1px solid rgba(255,255,255,.06)",
-          background: "rgba(7,7,10,.92)",
+          borderBottom: `1px solid ${COLORS.borderLight}`,
+          background: COLORS.bgGlass,
           backdropFilter: "blur(18px)",
         }}
       >
         <Link
+          id="theme-builder-back-link"
           href={TOOL_ROUTES.index}
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            color: "rgba(228,228,231,.55)",
+            color: COLORS.linkDefault,
             textDecoration: "none",
             fontSize: 11,
             fontWeight: 600,
           }}
-          onMouseOver={(e) => (e.currentTarget.style.color = "rgba(228,228,231,.85)")}
-          onMouseOut={(e) => (e.currentTarget.style.color = "rgba(228,228,231,.55)")}
         >
           <ArrowLeft size={14} />
           Back to Tools
         </Link>
-        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: "rgba(228,228,231,.35)" }}>{TOOL_ROUTES["brand-colors"]}</div>
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: COLORS.monoText }}>{TOOL_ROUTES["brand-colors"]}</div>
       </div>
 
       <TopBar
@@ -86,7 +110,7 @@ export function ThemeBuilderShell() {
       {c.pickMode ? (
         <div
           className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full"
-          style={{ background: "rgba(201,169,110,.95)", color: "#09090b", fontSize: 11, fontWeight: 500, boxShadow: "0 4px 24px rgba(0,0,0,.4)" }}
+          style={{ background: COLORS.goldBg, color: COLORS.darkBg, fontSize: 11, fontWeight: 500, boxShadow: "0 4px 24px rgba(0,0,0,.4)" }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontWeight: 700 }}>Pick mode:</span> Click any element to edit its color{" "}
