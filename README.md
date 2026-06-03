@@ -1,6 +1,6 @@
 # Core-Pages
 
-כלים סטטיים: **מחשבון עסק** ו-**בונה צבעים / טוקנים** — ללא שרת, DB או התחברות.
+כלים סטטיים: **מחשבון עסק**, **בונה צבעים / טוקנים** ו-**הצעת מחיר / חשבונית** — ללא שרת, DB או התחברות.
 
 ## אתר חי (GitHub Pages)
 
@@ -9,6 +9,7 @@
 | רשימת כלים | https://bengueta.github.io/Core-Pages/ |
 | מחשבון עסק | https://bengueta.github.io/Core-Pages/business/ |
 | צבעים וטוקנים | https://bengueta.github.io/Core-Pages/brand-colors/ |
+| הצעת מחיר / חשבונית | https://bengueta.github.io/Core-Pages/quote/ |
 
 ## פיתוח מקומי
 
