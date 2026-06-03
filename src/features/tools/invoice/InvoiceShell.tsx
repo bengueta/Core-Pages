@@ -3,7 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
-import { FileText, Home, Plus, Printer, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import {
+  Copy,
+  FileText,
+  FilePlus2,
+  FolderOpen,
+  Home,
+  Plus,
+  Printer,
+  RotateCcw,
+  Save,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 
 import {
@@ -17,10 +30,15 @@ import {
 } from "../shared";
 import type { Tokens } from "../shared";
 import {
+  CURRENCY_SYMBOL,
   calcTotals,
   defaultDoc,
+  formatMoney,
   lineTotal,
   newItemId,
+  nextDocNumber,
+  readableOn,
+  type Currency,
   type DiscountMode,
   type DocType,
   type InvoiceDoc,
@@ -28,23 +46,23 @@ import {
 } from "./engine";
 
 const STORAGE_KEY = "tool_invoice_doc";
+const LIBRARY_KEY = "tool_invoice_library";
 const MAX_LOGO_BYTES = 600 * 1024; // ~600KB cap for an inline dataURL logo
+const MAX_SAVES = 30;
 
 const DOC_TITLES: Record<DocType, string> = {
   quote: "הצעת מחיר",
   invoice: "חשבונית עסקה",
 };
 
-/** Currency with agorot — invoices need cents-level precision. */
-function money(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  return new Intl.NumberFormat("he-IL", {
-    style: "currency",
-    currency: "ILS",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(v);
-}
+const ACCENT_PRESETS = ["#8a6327", "#1a1a22", "#0a84ff", "#2f8f4e", "#7c3aed", "#be123c"];
+
+type SavedDoc = {
+  id: string;
+  name: string;
+  savedAt: string;
+  doc: InvoiceDoc;
+};
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
@@ -89,16 +107,7 @@ function TextField({
 }) {
   return (
     <div style={{ padding: "10px 16px", borderBottom: last ? undefined : `0.5px solid ${tokens.sep}` }}>
-      <label
-        style={{
-          display: "block",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.02em",
-          color: tokens.label3,
-          marginBottom: 5,
-        }}
-      >
+      <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 5 }}>
         {label}
       </label>
       <input
@@ -136,16 +145,7 @@ function AreaField({
 }) {
   return (
     <div style={{ padding: "10px 16px" }}>
-      <label
-        style={{
-          display: "block",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.02em",
-          color: tokens.label3,
-          marginBottom: 5,
-        }}
-      >
+      <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 5 }}>
         {label}
       </label>
       <textarea
@@ -174,6 +174,8 @@ function AreaField({
 function ItemRow({
   tokens,
   item,
+  symbol,
+  currency,
   onChange,
   onRemove,
   canRemove,
@@ -181,6 +183,8 @@ function ItemRow({
 }: {
   tokens: Tokens;
   item: LineItem;
+  symbol: string;
+  currency: Currency;
   onChange: (patch: Partial<LineItem>) => void;
   onRemove: () => void;
   canRemove: boolean;
@@ -235,11 +239,11 @@ function ItemRow({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: tokens.label3 }}>מחיר</span>
-          <IOSInput tokens={tokens} value={item.price} onChange={(v) => onChange({ price: v })} pre="₪" small />
+          <IOSInput tokens={tokens} value={item.price} onChange={(v) => onChange({ price: v })} pre={symbol} small />
         </div>
         <div style={{ marginInlineStart: "auto", textAlign: "end" }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: tokens.label3, display: "block" }}>סה״כ</span>
-          <span style={{ fontSize: 15, fontWeight: 700, color: tokens.label1 }}>{money(lineTotal(item))}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: tokens.label1 }}>{formatMoney(lineTotal(item), currency)}</span>
         </div>
       </div>
     </div>
@@ -251,18 +255,19 @@ function ItemRow({
 const PAPER_INK = "#1a1a22";
 const PAPER_MUTED = "#6b7280";
 const PAPER_LINE = "#e5e7eb";
-const PAPER_ACCENT = "#8a6327";
 
 function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
   const totals = calcTotals(doc);
   const title = DOC_TITLES[doc.docType];
-  const validUntil = addDays(doc.issueDate, doc.validDays);
+  const accent = doc.accentColor || "#8a6327";
+  const onAccent = readableOn(accent);
+  const fmt = (v: number) => formatMoney(v, doc.currency);
 
   const cellHead: React.CSSProperties = {
     padding: "9px 12px",
     fontSize: 11.5,
     fontWeight: 700,
-    color: "#ffffff",
+    color: onAccent,
     letterSpacing: "0.02em",
   };
   const cell: React.CSSProperties = {
@@ -274,34 +279,17 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
   };
 
   return (
-    <div
-      dir="rtl"
-      style={{
-        background: "#ffffff",
-        color: PAPER_INK,
-        padding: "40px 40px 32px",
-        fontFamily: "inherit",
-        lineHeight: 1.5,
-      }}
-    >
+    <div dir="rtl" style={{ background: "#ffffff", color: PAPER_INK, padding: "40px 40px 32px", fontFamily: "inherit", lineHeight: 1.5 }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
         <div style={{ display: "flex", gap: 14, alignItems: "flex-start", minWidth: 0 }}>
           {doc.bizLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={doc.bizLogo}
-              alt=""
-              style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, flexShrink: 0 }}
-            />
+            <img src={doc.bizLogo} alt="" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, flexShrink: 0 }} />
           ) : null}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: PAPER_INK, letterSpacing: "-0.01em" }}>
-              {doc.bizName || "שם העסק"}
-            </div>
-            {doc.bizId ? (
-              <div style={{ fontSize: 12, color: PAPER_MUTED, marginTop: 2 }}>ח.פ / עוסק: {doc.bizId}</div>
-            ) : null}
+            <div style={{ fontSize: 20, fontWeight: 800, color: PAPER_INK, letterSpacing: "-0.01em" }}>{doc.bizName || "שם העסק"}</div>
+            {doc.bizId ? <div style={{ fontSize: 12, color: PAPER_MUTED, marginTop: 2 }}>ח.פ / עוסק: {doc.bizId}</div> : null}
             {doc.bizAddr ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>{doc.bizAddr}</div> : null}
             {doc.bizPhone ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>טל׳ {doc.bizPhone}</div> : null}
             {doc.bizEmail ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>{doc.bizEmail}</div> : null}
@@ -309,17 +297,7 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
         </div>
 
         <div style={{ textAlign: "start", flexShrink: 0 }}>
-          <div
-            style={{
-              fontSize: 24,
-              fontWeight: 800,
-              color: PAPER_ACCENT,
-              letterSpacing: "-0.01em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {title}
-          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: accent, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>{title}</div>
           <div style={{ fontSize: 12, color: PAPER_MUTED, marginTop: 6 }}>
             מספר: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{doc.docNumber || "—"}</span>
           </div>
@@ -328,20 +306,22 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
           </div>
           {doc.docType === "quote" ? (
             <div style={{ fontSize: 12, color: PAPER_MUTED }}>
-              בתוקף עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(validUntil)}</span>
+              בתוקף עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(addDays(doc.issueDate, doc.validDays))}</span>
             </div>
-          ) : null}
+          ) : (
+            <div style={{ fontSize: 12, color: PAPER_MUTED }}>
+              לתשלום עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(addDays(doc.issueDate, doc.dueDays))}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ height: 3, background: PAPER_ACCENT, borderRadius: 3, margin: "20px 0 0" }} />
+      <div style={{ height: 3, background: accent, borderRadius: 3, margin: "20px 0 0" }} />
 
       {/* Client */}
       <div style={{ marginTop: 22 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: PAPER_ACCENT, letterSpacing: "0.06em" }}>לכבוד</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: PAPER_INK, marginTop: 3 }}>
-          {doc.clientName || "שם הלקוח"}
-        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em" }}>לכבוד</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: PAPER_INK, marginTop: 3 }}>{doc.clientName || "שם הלקוח"}</div>
         {doc.clientId ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>ח.פ / ת.ז: {doc.clientId}</div> : null}
         {doc.clientAddr ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>{doc.clientAddr}</div> : null}
       </div>
@@ -349,15 +329,11 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
       {/* Items */}
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 22 }}>
         <thead>
-          <tr style={{ background: PAPER_ACCENT }}>
-            <th style={{ ...cellHead, textAlign: "right", borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>
-              תיאור
-            </th>
+          <tr style={{ background: accent }}>
+            <th style={{ ...cellHead, textAlign: "right", borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>תיאור</th>
             <th style={{ ...cellHead, textAlign: "center", width: 70 }}>כמות</th>
             <th style={{ ...cellHead, textAlign: "start", width: 110 }}>מחיר יחידה</th>
-            <th style={{ ...cellHead, textAlign: "start", width: 120, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>
-              סה״כ
-            </th>
+            <th style={{ ...cellHead, textAlign: "start", width: 120, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>סה״כ</th>
           </tr>
         </thead>
         <tbody>
@@ -365,8 +341,8 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
             <tr key={it.id}>
               <td style={{ ...cell, fontWeight: 600 }}>{it.desc || "—"}</td>
               <td style={{ ...cell, textAlign: "center" }}>{Number.isFinite(it.qty) ? it.qty : 0}</td>
-              <td style={{ ...cell, textAlign: "start" }}>{money(it.price)}</td>
-              <td style={{ ...cell, textAlign: "start", fontWeight: 700 }}>{money(lineTotal(it))}</td>
+              <td style={{ ...cell, textAlign: "start" }}>{fmt(it.price)}</td>
+              <td style={{ ...cell, textAlign: "start", fontWeight: 700 }}>{fmt(lineTotal(it))}</td>
             </tr>
           ))}
         </tbody>
@@ -375,12 +351,16 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
       {/* Totals */}
       <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 18 }}>
         <div style={{ width: 280, maxWidth: "100%" }}>
-          <TotalRow label="סכום ביניים" value={money(totals.subtotal)} />
-          {totals.discount > 0 ? (
-            <TotalRow label="הנחה" value={`- ${money(totals.discount)}`} />
-          ) : null}
-          {totals.discount > 0 ? <TotalRow label="סה״כ לפני מע״מ" value={money(totals.net)} /> : null}
-          <TotalRow label={`מע״מ ${doc.vatRate}%`} value={money(totals.vat)} />
+          <TotalRow label="סכום ביניים" value={fmt(totals.subtotal)} />
+          {totals.discount > 0 ? <TotalRow label="הנחה" value={`- ${fmt(totals.discount)}`} /> : null}
+          {doc.pricesIncludeVat ? (
+            <TotalRow label={`כולל מע״מ ${doc.vatRate}%`} value={fmt(totals.vat)} muted />
+          ) : (
+            <>
+              {totals.discount > 0 ? <TotalRow label="לפני מע״מ" value={fmt(totals.net)} /> : null}
+              <TotalRow label={`מע״מ ${doc.vatRate}%`} value={fmt(totals.vat)} />
+            </>
+          )}
           <div
             style={{
               display: "flex",
@@ -388,22 +368,28 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
               alignItems: "center",
               marginTop: 8,
               padding: "11px 14px",
-              background: PAPER_ACCENT,
+              background: accent,
               borderRadius: 10,
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>סה״כ לתשלום</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{money(totals.total)}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: onAccent }}>סה״כ לתשלום</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: onAccent }}>{fmt(totals.total)}</span>
           </div>
         </div>
       </div>
 
+      {/* Payment details (invoice) */}
+      {doc.docType === "invoice" && doc.payInfo.trim() ? (
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${PAPER_LINE}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em", marginBottom: 5 }}>פרטי תשלום</div>
+          <div style={{ fontSize: 12, color: PAPER_MUTED, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{doc.payInfo}</div>
+        </div>
+      ) : null}
+
       {/* Notes */}
       {doc.notes.trim() ? (
-        <div style={{ marginTop: 26, paddingTop: 16, borderTop: `1px solid ${PAPER_LINE}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: PAPER_ACCENT, letterSpacing: "0.06em", marginBottom: 5 }}>
-            הערות ותנאים
-          </div>
+        <div style={{ marginTop: doc.docType === "invoice" && doc.payInfo.trim() ? 16 : 26, paddingTop: 16, borderTop: `1px solid ${PAPER_LINE}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em", marginBottom: 5 }}>הערות ותנאים</div>
           <div style={{ fontSize: 12, color: PAPER_MUTED, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{doc.notes}</div>
         </div>
       ) : null}
@@ -415,19 +401,66 @@ function InvoiceDocument({ doc }: { doc: InvoiceDoc }) {
   );
 }
 
-function TotalRow({ label, value }: { label: string; value: string }) {
+function TotalRow({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
   return (
-    <div
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 14px", fontSize: muted ? 12 : 13 }}>
+      <span style={{ color: PAPER_MUTED }}>{label}</span>
+      <span style={{ color: muted ? PAPER_MUTED : PAPER_INK, fontWeight: muted ? 500 : 600 }}>{value}</span>
+    </div>
+  );
+}
+
+/* ───────────────────────────── saved-docs row ───────────────────────────── */
+
+function SavedRow({
+  tokens,
+  entry,
+  onLoad,
+  onDuplicate,
+  onDelete,
+  last,
+}: {
+  tokens: Tokens;
+  entry: SavedDoc;
+  onLoad: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  last: boolean;
+}) {
+  const when = new Date(entry.savedAt).toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  const iconBtn = (label: string, color: string, onClick: () => void, children: React.ReactNode) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
       style={{
+        width: 32,
+        height: 32,
+        borderRadius: tokens.r10,
+        border: "none",
+        background: `${color}18`,
+        color,
+        cursor: "pointer",
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        padding: "6px 14px",
-        fontSize: 13,
+        justifyContent: "center",
+        flexShrink: 0,
       }}
     >
-      <span style={{ color: PAPER_MUTED }}>{label}</span>
-      <span style={{ color: PAPER_INK, fontWeight: 600 }}>{value}</span>
+      {children}
+    </button>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", borderBottom: last ? undefined : `0.5px solid ${tokens.sep}` }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: tokens.label1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {entry.name}
+        </div>
+        <div style={{ fontSize: 11, color: tokens.label3 }}>{when}</div>
+      </div>
+      {iconBtn("טען", tokens.blue, onLoad, <FolderOpen size={15} />)}
+      {iconBtn("שכפל", tokens.green, onDuplicate, <Copy size={15} />)}
+      {iconBtn("מחק", tokens.red, onDelete, <Trash2 size={15} />)}
     </div>
   );
 }
@@ -441,6 +474,7 @@ export function InvoiceShell() {
   const tokens = getTokens(isDark);
 
   const [doc, setDoc] = useState<InvoiceDoc>(defaultDoc);
+  const [library, setLibrary] = useState<SavedDoc[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
 
@@ -459,12 +493,17 @@ export function InvoiceShell() {
           items: Array.isArray(parsed.items) && parsed.items.length ? parsed.items : prev.items,
         }));
       }
+      const rawLib = localStorage.getItem(LIBRARY_KEY);
+      if (rawLib) {
+        const arr = JSON.parse(rawLib) as SavedDoc[];
+        if (Array.isArray(arr)) setLibrary(arr);
+      }
     } catch {
       /* ignore corrupt storage */
     }
   }, [mounted]);
 
-  // Persist on change.
+  // Persist working doc.
   useEffect(() => {
     if (!mounted) return;
     try {
@@ -474,28 +513,26 @@ export function InvoiceShell() {
     }
   }, [doc, mounted]);
 
-  const set = <K extends keyof InvoiceDoc>(k: K, v: InvoiceDoc[K]) =>
-    setDoc((prev) => ({ ...prev, [k]: v }));
+  // Persist library.
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+    } catch {
+      /* non-fatal */
+    }
+  }, [library, mounted]);
+
+  const set = <K extends keyof InvoiceDoc>(k: K, v: InvoiceDoc[K]) => setDoc((prev) => ({ ...prev, [k]: v }));
 
   const totals = useMemo(() => calcTotals(doc), [doc]);
+  const symbol = CURRENCY_SYMBOL[doc.currency];
 
-  const addItem = () =>
-    setDoc((prev) => ({
-      ...prev,
-      items: [...prev.items, { id: newItemId(), desc: "", qty: 1, price: 0 }],
-    }));
-
+  const addItem = () => setDoc((prev) => ({ ...prev, items: [...prev.items, { id: newItemId(), desc: "", qty: 1, price: 0 }] }));
   const patchItem = (id: string, patch: Partial<LineItem>) =>
-    setDoc((prev) => ({
-      ...prev,
-      items: prev.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
-    }));
-
+    setDoc((prev) => ({ ...prev, items: prev.items.map((it) => (it.id === id ? { ...it, ...patch } : it)) }));
   const removeItem = (id: string) =>
-    setDoc((prev) => ({
-      ...prev,
-      items: prev.items.length > 1 ? prev.items.filter((it) => it.id !== id) : prev.items,
-    }));
+    setDoc((prev) => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter((it) => it.id !== id) : prev.items }));
 
   const onLogoPick = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -520,10 +557,53 @@ export function InvoiceShell() {
   const doPrint = () => window.print();
 
   const resetAll = () => {
-    if (typeof window !== "undefined" && !window.confirm("לאפס את כל הטופס?")) return;
+    if (typeof window !== "undefined" && !window.confirm("לאפס את הטופס הנוכחי? (המסמכים השמורים יישארו)")) return;
     setDoc(freshDoc());
     setLogoError(null);
   };
+
+  /* saved-docs library actions */
+  const saveCurrent = () => {
+    const entry: SavedDoc = {
+      id: newItemId(),
+      name: `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim(),
+      savedAt: new Date().toISOString(),
+      doc,
+    };
+    setLibrary((prev) => [entry, ...prev].slice(0, MAX_SAVES));
+  };
+
+  const newDocument = () => {
+    setDoc((prev) => ({
+      ...freshDoc(),
+      // keep issuer identity + global settings
+      bizName: prev.bizName,
+      bizId: prev.bizId,
+      bizAddr: prev.bizAddr,
+      bizPhone: prev.bizPhone,
+      bizEmail: prev.bizEmail,
+      bizLogo: prev.bizLogo,
+      currency: prev.currency,
+      vatRate: prev.vatRate,
+      pricesIncludeVat: prev.pricesIncludeVat,
+      accentColor: prev.accentColor,
+      validDays: prev.validDays,
+      dueDays: prev.dueDays,
+      payInfo: prev.payInfo,
+      notes: prev.notes,
+      docType: prev.docType,
+      docNumber: nextDocNumber(prev.docNumber),
+    }));
+    setLogoError(null);
+  };
+
+  const loadSaved = (entry: SavedDoc) => {
+    setDoc({ ...defaultDoc, ...entry.doc });
+    setLogoError(null);
+  };
+  const duplicateSaved = (entry: SavedDoc) =>
+    setLibrary((prev) => [{ ...entry, id: newItemId(), name: `${entry.name} (עותק)`, savedAt: new Date().toISOString() }, ...prev].slice(0, MAX_SAVES));
+  const deleteSaved = (id: string) => setLibrary((prev) => prev.filter((e) => e.id !== id));
 
   if (!mounted) {
     return <div style={{ minHeight: "100vh", background: "#09090b" }} aria-hidden />;
@@ -533,6 +613,12 @@ export function InvoiceShell() {
     { value: "none", label: "ללא" },
     { value: "percent", label: "אחוז" },
     { value: "amount", label: "סכום" },
+  ];
+  const currencyOptions: Array<{ value: Currency; label: string }> = [
+    { value: "ILS", label: "₪" },
+    { value: "USD", label: "$" },
+    { value: "EUR", label: "€" },
+    { value: "GBP", label: "£" },
   ];
 
   return (
@@ -584,20 +670,9 @@ export function InvoiceShell() {
       <div id="page">
         <header className="inv-no-print" style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                ...glass("ultra"),
-                borderRadius: 999,
-                padding: "8px 14px 8px 16px",
-              }}
-            >
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass("ultra"), borderRadius: 999, padding: "8px 14px 8px 16px" }}>
               <FileText size={22} style={{ color: tokens.label2, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", color: tokens.label2 }}>
-                Quote / Invoice
-              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", color: tokens.label2 }}>Quote / Invoice</span>
             </div>
             <Link
               href="/"
@@ -620,7 +695,7 @@ export function InvoiceShell() {
             הצעת מחיר / חשבונית
           </h1>
           <p style={{ fontSize: 16, fontWeight: 400, lineHeight: 1.68, color: tokens.label2, maxWidth: 560 }}>
-            בנו מסמך עסקי מעוצב עם פריטים, הנחה ומע״מ, צפו בתצוגה חיה והדפיסו ל-PDF בקליק. הכול נשמר בדפדפן — ללא שרת.
+            בנו מסמך עסקי מעוצב עם פריטים, הנחה ומע״מ, צפו בתצוגה חיה והדפיסו ל-PDF בקליק. ניהול מסמכים שמורים, מטבע וצבע מותג — הכול נשמר בדפדפן, ללא שרת.
           </p>
         </header>
 
@@ -639,16 +714,38 @@ export function InvoiceShell() {
               />
             </div>
 
+            <Section tokens={tokens} title="מסמכים שמורים">
+              <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderBottom: library.length ? `0.5px solid ${tokens.sep}` : undefined }}>
+                <ActionButton tokens={tokens} color={tokens.green} onPress={saveCurrent} icon={<Save size={16} />} small full>
+                  שמירת המסמך
+                </ActionButton>
+                <ActionButton tokens={tokens} color={tokens.blue} onPress={newDocument} icon={<FilePlus2 size={16} />} small full>
+                  מסמך חדש
+                </ActionButton>
+              </div>
+              {library.length ? (
+                library.map((e, i) => (
+                  <SavedRow
+                    key={e.id}
+                    tokens={tokens}
+                    entry={e}
+                    onLoad={() => loadSaved(e)}
+                    onDuplicate={() => duplicateSaved(e)}
+                    onDelete={() => deleteSaved(e.id)}
+                    last={i === library.length - 1}
+                  />
+                ))
+              ) : (
+                <p style={{ fontSize: 12, color: tokens.label3, padding: "12px 16px" }}>אין מסמכים שמורים עדיין.</p>
+              )}
+            </Section>
+
             <Section tokens={tokens} title="פרטי העסק">
               <div style={{ padding: "12px 16px", borderBottom: `0.5px solid ${tokens.sep}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   {doc.bizLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={doc.bizLogo}
-                      alt=""
-                      style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 8, background: "#fff" }}
-                    />
+                    <img src={doc.bizLogo} alt="" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 8, background: "#fff" }} />
                   ) : null}
                   <input ref={fileRef} type="file" accept="image/*" onChange={onLogoPick} style={{ display: "none" }} />
                   <button
@@ -678,27 +775,14 @@ export function InvoiceShell() {
                       type="button"
                       onClick={() => set("bizLogo", null)}
                       aria-label="הסר לוגו"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        border: "none",
-                        background: "transparent",
-                        color: tokens.label3,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        fontFamily: "inherit",
-                        cursor: "pointer",
-                      }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "none", background: "transparent", color: tokens.label3, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}
                     >
                       <X size={14} />
                       הסר
                     </button>
                   ) : null}
                 </div>
-                {logoError ? (
-                  <p style={{ fontSize: 12, color: tokens.red, marginTop: 8 }}>{logoError}</p>
-                ) : null}
+                {logoError ? <p style={{ fontSize: 12, color: tokens.red, marginTop: 8 }}>{logoError}</p> : null}
               </div>
               <TextField tokens={tokens} label="שם העסק" value={doc.bizName} onChange={(v) => set("bizName", v)} placeholder="שם העסק שלך" />
               <TextField tokens={tokens} label="ח.פ / עוסק מורשה" value={doc.bizId} onChange={(v) => set("bizId", v)} placeholder="מספר עוסק" dir="ltr" />
@@ -716,17 +800,54 @@ export function InvoiceShell() {
             <Section tokens={tokens} title="פרטי המסמך">
               <TextField tokens={tokens} label="מספר מסמך" value={doc.docNumber} onChange={(v) => set("docNumber", v)} placeholder="1001" dir="ltr" />
               <div style={{ padding: "10px 16px", borderBottom: `0.5px solid ${tokens.sep}` }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 6 }}>
-                  תאריך הנפקה
-                </label>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 6 }}>תאריך הנפקה</label>
                 <HebrewDatePicker tokens={tokens} value={doc.issueDate} onChange={(v) => set("issueDate", v)} />
+              </div>
+              <div style={{ padding: "12px 16px", borderBottom: `0.5px solid ${tokens.sep}` }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 8 }}>מטבע</label>
+                <SegmentedControl<Currency> tokens={tokens} value={doc.currency} onChange={(v) => set("currency", v)} options={currencyOptions} />
               </div>
               {doc.docType === "quote" ? (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px" }}>
-                  <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>תוקף (ימים)</span>
+                  <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>תוקף ההצעה</span>
                   <IOSInput tokens={tokens} value={doc.validDays} onChange={(v) => set("validDays", v)} suf="ימים" />
                 </div>
-              ) : null}
+              ) : (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px" }}>
+                  <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>תנאי תשלום</span>
+                  <IOSInput tokens={tokens} value={doc.dueDays} onChange={(v) => set("dueDays", v)} suf="ימים" />
+                </div>
+              )}
+            </Section>
+
+            <Section tokens={tokens} title="צבע מותג">
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", flexWrap: "wrap" }}>
+                <input
+                  type="color"
+                  value={doc.accentColor}
+                  onChange={(e) => set("accentColor", e.target.value)}
+                  aria-label="צבע מותג"
+                  style={{ width: 40, height: 40, border: "none", borderRadius: tokens.r10, background: "transparent", cursor: "pointer", padding: 0 }}
+                />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {ACCENT_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => set("accentColor", c)}
+                      aria-label={`צבע ${c}`}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: "50%",
+                        background: c,
+                        border: doc.accentColor.toLowerCase() === c ? `2px solid ${tokens.label1}` : `1px solid ${tokens.sep}`,
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </Section>
 
             <Section tokens={tokens} title="פריטים">
@@ -735,6 +856,8 @@ export function InvoiceShell() {
                   key={it.id}
                   tokens={tokens}
                   item={it}
+                  symbol={symbol}
+                  currency={doc.currency}
                   onChange={(patch) => patchItem(it.id, patch)}
                   onRemove={() => removeItem(it.id)}
                   canRemove={doc.items.length > 1}
@@ -750,22 +873,27 @@ export function InvoiceShell() {
 
             <Section tokens={tokens} title="הנחה ומע״מ">
               <div style={{ padding: "12px 16px", borderBottom: `0.5px solid ${tokens.sep}` }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 8 }}>
-                  הנחה
-                </label>
-                <SegmentedControl<DiscountMode>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 8 }}>תמחור</label>
+                <SegmentedControl<string>
                   tokens={tokens}
-                  value={doc.discountMode}
-                  onChange={(v) => set("discountMode", v)}
-                  options={discountOptions}
+                  value={doc.pricesIncludeVat ? "incl" : "excl"}
+                  onChange={(v) => set("pricesIncludeVat", v === "incl")}
+                  options={[
+                    { value: "excl", label: "לא כולל מע״מ" },
+                    { value: "incl", label: "כולל מע״מ" },
+                  ]}
                 />
+              </div>
+              <div style={{ padding: "12px 16px", borderBottom: `0.5px solid ${tokens.sep}` }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: tokens.label3, marginBottom: 8 }}>הנחה</label>
+                <SegmentedControl<DiscountMode> tokens={tokens} value={doc.discountMode} onChange={(v) => set("discountMode", v)} options={discountOptions} />
                 {doc.discountMode !== "none" ? (
                   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
                     <IOSInput
                       tokens={tokens}
                       value={doc.discountValue}
                       onChange={(v) => set("discountValue", v)}
-                      pre={doc.discountMode === "amount" ? "₪" : undefined}
+                      pre={doc.discountMode === "amount" ? symbol : undefined}
                       suf={doc.discountMode === "percent" ? "%" : undefined}
                     />
                   </div>
@@ -776,6 +904,12 @@ export function InvoiceShell() {
                 <IOSInput tokens={tokens} value={doc.vatRate} onChange={(v) => set("vatRate", v)} suf="%" />
               </div>
             </Section>
+
+            {doc.docType === "invoice" ? (
+              <Section tokens={tokens} title="פרטי תשלום">
+                <AreaField tokens={tokens} label="חשבון בנק / אמצעי תשלום" value={doc.payInfo} onChange={(v) => set("payInfo", v)} placeholder="בנק / סניף / חשבון, או קישור לתשלום…" />
+              </Section>
+            ) : null}
 
             <Section tokens={tokens} title="הערות ותנאים">
               <AreaField tokens={tokens} label="טקסט חופשי" value={doc.notes} onChange={(v) => set("notes", v)} placeholder="תנאי תשלום, תוקף, הערות…" />
@@ -797,7 +931,7 @@ export function InvoiceShell() {
               <InvoiceDocument doc={doc} />
             </div>
             <p className="inv-no-print" style={{ fontSize: 12, color: tokens.label3, textAlign: "center", marginTop: 12 }}>
-              בחלון ההדפסה בחרו “שמירה כ-PDF” · סה״כ לתשלום {money(totals.total)}
+              בחלון ההדפסה בחרו “שמירה כ-PDF” · סה״כ לתשלום {formatMoney(totals.total, doc.currency)}
             </p>
           </div>
         </div>
