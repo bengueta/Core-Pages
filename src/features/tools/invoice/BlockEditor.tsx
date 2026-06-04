@@ -61,6 +61,10 @@ export function BlockEditor({
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>לוגו (מספריית הנכסים)</label>
             <AssetPicker tokens={tokens} assets={assets} kind="logo" value={doc.logoAssetId} onChange={(id) => onDocChange({ logoAssetId: id })} onManage={() => onManageAssets("logo")} />
           </div>
+          <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>מיקום לוגו ומיתוג</label>
+            <SegmentedControl<BlockAlign> tokens={tokens} value={block.align ?? (block.span === 2 ? "center" : "right")} onChange={(v) => updateBlock({ align: v })} options={ALIGN_OPTS} />
+          </div>
           <TextField tokens={tokens} label="שם העסק" value={doc.bizName} onChange={(v) => onDocChange({ bizName: v })} placeholder="שם העסק שלך" />
           <TextField tokens={tokens} label="ח.פ / עוסק מורשה" value={doc.bizId} onChange={(v) => onDocChange({ bizId: v })} placeholder="מספר עוסק" dir="ltr" />
           <TextField tokens={tokens} label="כתובת" value={doc.bizAddr} onChange={(v) => onDocChange({ bizAddr: v })} placeholder="רחוב, עיר" />

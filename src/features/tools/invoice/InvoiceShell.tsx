@@ -103,6 +103,15 @@ export function InvoiceShell() {
   const [signingSession, setSigningSession] = useState<{ doc: InvoiceDoc; assets: LiveAsset[] } | null>(null);
   const [signingChecked, setSigningChecked] = useState(false);
   const [sending, setSending] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [saveDialog, setSaveDialog] = useState<{ open: boolean; name: string }>({ open: false, name: "" });
+
+  const toast = (m: string) => {
+    setToastMsg(m);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(null), 1900);
+  };
 
   useEffect(() => setMounted(true), []);
 
@@ -239,6 +248,7 @@ export function InvoiceShell() {
       signedHash: hash,
     });
     setSignModal({ open: false, blockId: null });
+    toast("נחתם ✓");
   };
 
   /* items */
@@ -311,9 +321,12 @@ export function InvoiceShell() {
   };
 
   /* saved-docs library */
-  const saveCurrent = () => {
-    const entry: SavedDoc = { id: newItemId(), name: `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim(), savedAt: new Date().toISOString(), doc };
-    setLibrary((prev) => [entry, ...prev].slice(0, MAX_SAVES));
+  const openSaveDialog = () => setSaveDialog({ open: true, name: `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim() });
+  const confirmSave = () => {
+    const name = saveDialog.name.trim() || `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim();
+    setLibrary((prev) => [{ id: newItemId(), name, savedAt: new Date().toISOString(), doc }, ...prev].slice(0, MAX_SAVES));
+    setSaveDialog({ open: false, name: "" });
+    toast("נשמר ✓");
   };
   const newDocument = () => {
     setDoc((prev) => ({
@@ -334,10 +347,12 @@ export function InvoiceShell() {
       docNumber: nextDocNumber(prev.docNumber),
     }));
     setSelectedId(null);
+    toast("מסמך חדש נוצר ✓");
   };
   const loadSaved = (entry: SavedDoc) => {
     setDoc({ ...defaultDoc, ...entry.doc });
     setSelectedId(null);
+    toast("נטען ✓");
   };
   const duplicateSaved = (entry: SavedDoc) =>
     setLibrary((prev) => [{ ...entry, id: newItemId(), name: `${entry.name} (עותק)`, savedAt: new Date().toISOString() }, ...prev].slice(0, MAX_SAVES));
@@ -376,7 +391,7 @@ export function InvoiceShell() {
       }
       try {
         await navigator.clipboard.writeText(url);
-        window.alert("הקישור לחתימה הועתק — הדביקו בוואטסאפ ושלחו ללקוח");
+        toast("הקישור לחתימה הועתק — הדביקו בוואטסאפ");
       } catch {
         window.prompt("העתיקו את הקישור לחתימה:", url);
       }
@@ -468,7 +483,7 @@ export function InvoiceShell() {
           {sheetAction(sending ? "מכין…" : "לחתימה", <Send size={18} />, sendForSignature, tokens.teal)}
           {sheetAction(sharing ? "מכין…" : "שתף", <Share2 size={18} />, doShare, tokens.green)}
           {sheetAction("נכסים", <Images size={18} />, () => setAssetModal({ open: true, kind: "logo" }), tokens.blue)}
-          {sheetAction("שמירה", <Save size={18} />, saveCurrent, tokens.label2)}
+          {sheetAction("שמירה", <Save size={18} />, openSaveDialog, tokens.label2)}
           {sheetAction("חדש", <FilePlus2 size={18} />, newDocument, tokens.label2)}
           {sheetAction("הדפסה", <Printer size={18} />, doPrint, tokens.label2)}
           {sheetAction("עוד", <MoreHorizontal size={18} />, () => setMoreOpen(true), tokens.label2)}
@@ -687,7 +702,7 @@ export function InvoiceShell() {
 
             <Section tokens={tokens} title="מסמכים שמורים">
               <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderBottom: library.length ? `0.5px solid ${tokens.sep}` : undefined }}>
-                <ActionButton tokens={tokens} color={tokens.green} onPress={saveCurrent} icon={<Save size={16} />} small full>שמירת המסמך</ActionButton>
+                <ActionButton tokens={tokens} color={tokens.green} onPress={openSaveDialog} icon={<Save size={16} />} small full>שמירת המסמך</ActionButton>
                 <ActionButton tokens={tokens} color={tokens.blue} onPress={newDocument} icon={<FilePlus2 size={16} />} small full>מסמך חדש</ActionButton>
               </div>
               {library.length ? (
@@ -753,6 +768,34 @@ export function InvoiceShell() {
       {isMobile && moreOpen ? moreModal : null}
 
       <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
+
+      {toastMsg ? (
+        <div className="inv-no-print" style={{ position: "fixed", top: "max(76px, env(safe-area-inset-top,0px))", left: "50%", transform: "translateX(-50%)", zIndex: 10002, ...glass("primary"), background: "rgba(28,28,34,0.92)", color: "#fff", padding: "10px 18px", borderRadius: 999, fontSize: 14, fontWeight: 700, boxShadow: "0 8px 28px rgba(0,0,0,0.4)", pointerEvents: "none" }}>
+          {toastMsg}
+        </div>
+      ) : null}
+
+      {saveDialog.open ? (
+        <div className="inv-no-print" onMouseDown={() => setSaveDialog({ open: false, name: "" })} style={{ position: "fixed", inset: 0, zIndex: 10001, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div dir="rtl" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(420px,100%)", background: "rgba(20,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: tokens.r28, padding: 20, color: tokens.label1, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>שמירת מסמך</h3>
+            <p style={{ fontSize: 12.5, color: tokens.label3, marginBottom: 14 }}>בחרו שם לשמירה בספריית המסמכים</p>
+            <input
+              autoFocus
+              value={saveDialog.name}
+              onChange={(e) => setSaveDialog((s) => ({ ...s, name: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); }}
+              placeholder="שם המסמך"
+              dir="rtl"
+              style={{ width: "100%", marginBottom: 16, padding: "12px 14px", borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, background: "rgba(0,0,0,0.25)", color: tokens.label1, fontSize: 16, fontWeight: 600, fontFamily: "inherit", outline: "none" }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <ActionButton tokens={tokens} color={tokens.green} onPress={confirmSave} icon={<Save size={16} />} small full>שמור</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.label3} onPress={() => setSaveDialog({ open: false, name: "" })} small full>ביטול</ActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {signModal.open ? (() => {
         const b = doc.blocks.find((x) => x.id === signModal.blockId);

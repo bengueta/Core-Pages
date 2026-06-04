@@ -152,6 +152,34 @@ export const TEMPLATES: Template[] = [
     order: ["brand", "meta", "client", "items", "totals", "payment", "signature", "notes"],
     spans: { brand: 1, meta: 1, signature: 1 },
   },
+  {
+    id: "elegant",
+    name: "אלגנט",
+    accentColor: "#1f6f5c",
+    order: ["brand", "meta", "client", "items", "totals", "signature", "notes"],
+    spans: { brand: 2, meta: 2, signature: 2 },
+  },
+  {
+    id: "vivid",
+    name: "תוסס",
+    accentColor: "#e0457b",
+    order: ["brand", "meta", "client", "items", "totals", "signature", "notes"],
+    spans: { brand: 1, meta: 1, signature: 1 },
+  },
+  {
+    id: "ocean",
+    name: "ים",
+    accentColor: "#0e7490",
+    order: ["brand", "meta", "client", "items", "totals", "signature", "notes"],
+    spans: { brand: 1, meta: 1, signature: 2 },
+  },
+  {
+    id: "noir",
+    name: "נואר",
+    accentColor: "#111827",
+    order: ["brand", "meta", "client", "items", "totals", "notes", "signature"],
+    spans: { brand: 2, meta: 1, signature: 1 },
+  },
 ];
 
 /* ─────────────────────────────── the document ────────────────────────── */

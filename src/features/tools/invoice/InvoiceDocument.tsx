@@ -45,8 +45,12 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
   switch (block.type) {
     case "brand": {
       const logo = assets.find((a) => a.id === doc.logoAssetId && a.kind === "logo");
+      const bAlign = block.align ?? (centered ? "center" : "right");
+      const isCol = bAlign === "center";
+      const justify = bAlign === "center" ? "center" : bAlign === "left" ? "flex-end" : "flex-start";
+      const txtAlign: React.CSSProperties["textAlign"] = bAlign === "center" ? "center" : bAlign === "left" ? "left" : "start";
       return (
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start", justifyContent: centered ? "center" : "flex-start", textAlign: centered ? "center" : "start" }}>
+        <div style={{ display: "flex", flexDirection: isCol ? "column" : "row", gap: isCol ? 8 : 14, alignItems: isCol ? "center" : "flex-start", justifyContent: justify, textAlign: txtAlign }}>
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logo.url} alt="" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, flexShrink: 0 }} />

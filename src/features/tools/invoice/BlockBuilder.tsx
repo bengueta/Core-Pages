@@ -107,22 +107,22 @@ function CardInner({
       style={{
         ...glass(selected ? "primary" : "secondary"),
         border: `1px solid ${selected ? tokens.blue : "rgba(255,255,255,0.12)"}`,
-        borderRadius: tokens.r16,
-        padding: "12px 12px 10px",
+        borderRadius: tokens.r13,
+        padding: "9px 9px 8px",
         cursor: "pointer",
         opacity: block.hidden ? 0.45 : 1,
         transition: "border-color .15s, opacity .15s",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
-        minHeight: 76,
+        gap: 8,
+        minHeight: 58,
         height: "100%",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {dragHandle}
-        <Icon size={16} style={{ color: selected ? tokens.blue : tokens.label2, flexShrink: 0 }} />
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: tokens.label1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <Icon size={15} style={{ color: selected ? tokens.blue : tokens.label2, flexShrink: 0 }} />
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: tokens.label1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {BLOCK_META[block.type].label}
         </span>
       </div>
@@ -151,9 +151,7 @@ function SortableCard(props: {
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    gridColumn: props.block.span === 2 ? "span 2" : "span 1",
     opacity: isDragging ? 0.35 : 1,
-    touchAction: "none",
   };
   const handle = (
     <span
