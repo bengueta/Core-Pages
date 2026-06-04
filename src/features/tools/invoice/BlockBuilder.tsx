@@ -21,8 +21,10 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { createPortal } from "react-dom";
 import {
   Building2,
+  Copy,
   CreditCard,
   Eye,
   EyeOff,
@@ -66,6 +68,7 @@ function CardInner({
   onToggleSpan,
   onToggleHidden,
   onDelete,
+  onDuplicate,
   dragHandle,
 }: {
   tokens: Tokens;
@@ -75,6 +78,7 @@ function CardInner({
   onToggleSpan: () => void;
   onToggleHidden: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   dragHandle?: React.ReactNode;
 }) {
   const Icon = ICONS[block.type];
@@ -82,12 +86,11 @@ function CardInner({
     <button
       type="button"
       aria-label={label}
-      onClick={onClick}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
       onPointerDown={(e) => e.stopPropagation()}
       style={{
-        width: 28,
-        height: 28,
-        borderRadius: 8,
+        height: 38,
+        borderRadius: 9,
         border: "none",
         background: `${color}1f`,
         color,
@@ -109,13 +112,13 @@ function CardInner({
         ...glass(selected ? "primary" : "secondary"),
         border: `1px solid ${selected ? tokens.blue : "rgba(255,255,255,0.12)"}`,
         borderRadius: tokens.r13,
-        padding: "9px 9px 8px",
+        padding: "9px 9px 9px",
         cursor: "pointer",
-        opacity: block.hidden ? 0.45 : 1,
+        opacity: block.hidden ? 0.5 : 1,
         transition: "border-color .15s, opacity .15s",
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: 9,
         minHeight: 58,
         height: "100%",
       }}
@@ -127,13 +130,13 @@ function CardInner({
           {BLOCK_META[block.type].label}
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto" }}>
-        {ctrl(block.span === 2 ? "חצי רוחב" : "רוחב מלא", tokens.label2, onToggleSpan, (
-          <span style={{ fontSize: 11, fontWeight: 800 }}>{block.span === 2 ? "½" : "1"}</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: "auto" }}>
+        {ctrl(block.span === 2 ? "חצי רוחב" : "רוחב מלא", tokens.label1, onToggleSpan, (
+          <span style={{ fontSize: 13, fontWeight: 800 }}>{block.span === 2 ? "½" : "1"}</span>
         ))}
-        {ctrl(block.hidden ? "הצג" : "הסתר", block.hidden ? tokens.label3 : tokens.green, onToggleHidden, block.hidden ? <EyeOff size={14} /> : <Eye size={14} />)}
-        <div style={{ flex: 1 }} />
-        {ctrl("מחק", tokens.red, onDelete, <Trash2 size={14} />)}
+        {ctrl(block.hidden ? "הצג" : "הסתר", block.hidden ? tokens.label3 : tokens.green, onToggleHidden, block.hidden ? <EyeOff size={17} /> : <Eye size={17} />)}
+        {ctrl("מחק", tokens.red, onDelete, <Trash2 size={16} />)}
+        {ctrl("שכפל", tokens.blue, onDuplicate, <Copy size={16} />)}
       </div>
     </div>
   );
@@ -147,6 +150,7 @@ function SortableCard(props: {
   onToggleSpan: () => void;
   onToggleHidden: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.block.id });
   const style: React.CSSProperties = {
@@ -181,6 +185,7 @@ export function BlockBuilder({
   onToggleSpan,
   onToggleHidden,
   onDelete,
+  onDuplicate,
   onAdd,
 }: {
   tokens: Tokens;
@@ -191,6 +196,7 @@ export function BlockBuilder({
   onToggleSpan: (id: string) => void;
   onToggleHidden: (id: string) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onAdd: (type: BlockType) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -237,23 +243,21 @@ export function BlockBuilder({
                 onToggleSpan={() => onToggleSpan(b.id)}
                 onToggleHidden={() => onToggleHidden(b.id)}
                 onDelete={() => onDelete(b.id)}
+                onDuplicate={() => onDuplicate(b.id)}
               />
             ))}
           </div>
         </SortableContext>
-        <DragOverlay>
-          {activeBlock ? (
-            <CardInner
-              tokens={tokens}
-              block={activeBlock}
-              selected
-              onSelect={() => {}}
-              onToggleSpan={() => {}}
-              onToggleHidden={() => {}}
-              onDelete={() => {}}
-            />
-          ) : null}
-        </DragOverlay>
+        {typeof document !== "undefined"
+          ? createPortal(
+              <DragOverlay zIndex={10000}>
+                {activeBlock ? (
+                  <CardInner tokens={tokens} block={activeBlock} selected onSelect={() => {}} onToggleSpan={() => {}} onToggleHidden={() => {}} onDelete={() => {}} onDuplicate={() => {}} />
+                ) : null}
+              </DragOverlay>,
+              document.body
+            )
+          : null}
       </DndContext>
 
       {/* Add-block palette */}

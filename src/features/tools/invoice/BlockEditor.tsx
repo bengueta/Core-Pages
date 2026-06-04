@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Plus, Save, X } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
 
 import { ActionButton, HebrewDatePicker, IOSInput, SegmentedControl } from "../shared";
 import type { Tokens } from "../shared";
@@ -42,7 +42,6 @@ export function BlockEditor({
   onSavePreset,
   onApplyPreset,
   onDeletePreset,
-  onDuplicate,
 }: {
   tokens: Tokens;
   doc: InvoiceDoc;
@@ -59,20 +58,14 @@ export function BlockEditor({
   onSavePreset: () => void;
   onApplyPreset: (preset: BlockPreset) => void;
   onDeletePreset: (id: string) => void;
-  onDuplicate: () => void;
 }) {
   const symbol = CURRENCY_SYMBOL[doc.currency];
   const rowPad = "12px 16px";
 
-  const header = (
+  const header = supportsPreset(block.type) ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 12px 12px", borderBottom: `0.5px solid ${tokens.sep}` }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <ActionButton tokens={tokens} color={tokens.label2} onPress={onDuplicate} icon={<Copy size={14} />} small full>שכפל בלוק</ActionButton>
-        {supportsPreset(block.type) ? (
-          <ActionButton tokens={tokens} color={tokens.blue} onPress={onSavePreset} icon={<Save size={14} />} small full>שמור פריסט</ActionButton>
-        ) : null}
-      </div>
-      {supportsPreset(block.type) && presets.length ? (
+      <ActionButton tokens={tokens} color={tokens.blue} onPress={onSavePreset} icon={<Save size={14} />} small full>שמור פריסט</ActionButton>
+      {presets.length ? (
         <div>
           <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: tokens.label3, margin: "2px 2px 7px" }}>פריסטים שמורים</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -90,7 +83,7 @@ export function BlockEditor({
         </div>
       ) : null}
     </div>
-  );
+  ) : null;
 
   const body = (() => {
     switch (block.type) {

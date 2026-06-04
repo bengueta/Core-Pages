@@ -98,7 +98,8 @@ export function InvoiceShell() {
 
   // Mobile experience: bottom-sheet editor + "more" modal.
   const [isMobile, setIsMobile] = useState(false);
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [sheetState, setSheetState] = useState<"peek" | "half" | "full">("half");
+  const cycleSheet = () => setSheetState((s) => (s === "peek" ? "half" : s === "half" ? "full" : "peek"));
   const [moreOpen, setMoreOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [signModal, setSignModal] = useState<{ open: boolean; blockId: string | null }>({ open: false, blockId: null });
@@ -479,6 +480,7 @@ export function InvoiceShell() {
       onToggleSpan={toggleSpan}
       onToggleHidden={toggleHidden}
       onDelete={deleteBlock}
+      onDuplicate={duplicateBlock}
       onAdd={addBlock}
     />
   );
@@ -499,7 +501,6 @@ export function InvoiceShell() {
       onSavePreset={() => openPresetDialog(selectedBlock)}
       onApplyPreset={(preset) => applyPresetToBlock(selectedBlock, preset)}
       onDeletePreset={(id) => deletePreset(selectedBlock.type, id)}
-      onDuplicate={() => duplicateBlock(selectedBlock.id)}
     />
   ) : null;
 
@@ -515,10 +516,16 @@ export function InvoiceShell() {
   );
 
   const mobileSheet = (
-    <div className="inv-sheet inv-no-print" style={{ height: sheetExpanded ? "88vh" : "54vh" }}>
-      <div className="inv-grabber" onClick={() => setSheetExpanded((v) => !v)}>
+    <div className="inv-sheet inv-no-print" style={{ height: sheetState === "full" ? "90vh" : sheetState === "half" ? "56vh" : 60 }}>
+      <div className="inv-grabber" onClick={cycleSheet} title="לחיצה: סגור / חצי / מלא">
         <span />
       </div>
+      {sheetState === "peek" ? (
+        <button type="button" onClick={() => setSheetState("half")} style={{ border: "none", background: "transparent", color: tokens.label2, fontSize: 13.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", padding: "0 0 10px", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+          פתיחת עורך המסמך ↑
+        </button>
+      ) : (
+      <>
       {selectedBlock ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 14px 10px", borderBottom: `0.5px solid ${tokens.sep}` }}>
           <button type="button" onClick={() => setSelectedId(null)} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: tokens.fill3, color: tokens.label1, borderRadius: 999, padding: "7px 12px 7px 14px", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
@@ -554,6 +561,8 @@ export function InvoiceShell() {
           </>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 
