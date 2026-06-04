@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
@@ -11,8 +11,10 @@ import { BlockBuilder } from "./BlockBuilder";
 import { BlockEditor } from "./BlockEditor";
 import { InvoiceDocument } from "./InvoiceDocument";
 import { ClientSignModal } from "./ClientSignModal";
+import { SigningView } from "./SigningView";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
+import { blobUrlToDataUrl, buildSignUrl, decodeSignPayload, downscaleDataUrl, encodeSignPayload, readSignFragment } from "./signlink";
 import {
   BLOCK_META,
   TEMPLATES,
@@ -98,6 +100,9 @@ export function InvoiceShell() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [signModal, setSignModal] = useState<{ open: boolean; blockId: string | null }>({ open: false, blockId: null });
+  const [signingSession, setSigningSession] = useState<{ doc: InvoiceDoc; assets: LiveAsset[] } | null>(null);
+  const [signingChecked, setSigningChecked] = useState(false);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -110,9 +115,31 @@ export function InvoiceShell() {
     return () => mq.removeEventListener("change", apply);
   }, [mounted]);
 
+  // Remote signing: if opened via a #sign= link, decode the embedded document.
+  useEffect(() => {
+    if (!mounted) return;
+    const frag = readSignFragment();
+    if (!frag) {
+      setSigningChecked(true);
+      return;
+    }
+    (async () => {
+      try {
+        const payload = await decodeSignPayload(frag);
+        const live: LiveAsset[] = payload.assets.map((a) => ({ id: a.id, kind: a.kind, name: "", url: a.url, createdAt: "" }));
+        setSigningSession({ doc: payload.doc, assets: live });
+      } catch {
+        /* invalid link — fall back to the normal editor */
+      } finally {
+        setSigningChecked(true);
+      }
+    })();
+  }, [mounted]);
+
   // Async load: doc + library from localStorage, assets from IndexedDB (with one-time migration).
   useEffect(() => {
     if (!mounted) return;
+    if (readSignFragment()) return; // in remote-signing mode we don't touch local data
     let alive = true;
     (async () => {
       let logoDataUrl: string | null = null;
@@ -317,6 +344,47 @@ export function InvoiceShell() {
   const deleteSaved = (id: string) => setLibrary((prev) => prev.filter((e) => e.id !== id));
 
   const doPrint = () => window.print();
+  const sendForSignature = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const ids = new Set<string>();
+      if (doc.logoAssetId) ids.add(doc.logoAssetId);
+      doc.blocks.forEach((b) => { if (b.signatureAssetId) ids.add(b.signatureAssetId); });
+      const payloadAssets: Array<{ id: string; kind: AssetKind; url: string }> = [];
+      for (const id of ids) {
+        const a = assets.find((x) => x.id === id);
+        if (!a) continue;
+        try {
+          const dataUrl = await blobUrlToDataUrl(a.url);
+          payloadAssets.push({ id, kind: a.kind, url: await downscaleDataUrl(dataUrl) });
+        } catch {
+          /* skip an asset that can't be inlined */
+        }
+      }
+      const encoded = await encodeSignPayload({ v: 1, doc, assets: payloadAssets });
+      const url = buildSignUrl(encoded);
+      const text = `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""} לחתימה`.trim();
+      const nav = navigator as Navigator;
+      if (typeof nav.share === "function") {
+        try {
+          await nav.share({ title: text, text, url });
+          return;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        window.alert("הקישור לחתימה הועתק — הדביקו בוואטסאפ ושלחו ללקוח");
+      } catch {
+        window.prompt("העתיקו את הקישור לחתימה:", url);
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
   const doShare = async () => {
     if (sharing) return;
     const el = document.getElementById("invoice-doc");
@@ -337,7 +405,9 @@ export function InvoiceShell() {
     setSelectedId(null);
   };
 
-  if (!mounted) return <div style={{ minHeight: "100vh", background: "#09090b" }} aria-hidden />;
+  if (!mounted || !signingChecked) return <div style={{ minHeight: "100vh", background: "#09090b" }} aria-hidden />;
+
+  if (signingSession) return <SigningView isDark={isDark} doc={signingSession.doc} assets={signingSession.assets} />;
 
   const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
 
@@ -395,6 +465,7 @@ export function InvoiceShell() {
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, padding: "0 6px 8px", borderBottom: `0.5px solid ${tokens.sep}`, overflowX: "auto" }}>
+          {sheetAction(sending ? "מכין…" : "לחתימה", <Send size={18} />, sendForSignature, tokens.teal)}
           {sheetAction(sharing ? "מכין…" : "שתף", <Share2 size={18} />, doShare, tokens.green)}
           {sheetAction("נכסים", <Images size={18} />, () => setAssetModal({ open: true, kind: "logo" }), tokens.blue)}
           {sheetAction("שמירה", <Save size={18} />, saveCurrent, tokens.label2)}
@@ -646,10 +717,13 @@ export function InvoiceShell() {
               </div>
             </Section>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <ActionButton tokens={tokens} color={tokens.green} onPress={doShare} icon={<Share2 size={17} />} full>{sharing ? "מכין PDF…" : "שיתוף / PDF"}</ActionButton>
-              <ActionButton tokens={tokens} color={tokens.blue} onPress={doPrint} icon={<Printer size={17} />} full>הדפסה</ActionButton>
-              <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={16} />} small>איפוס</ActionButton>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <ActionButton tokens={tokens} color={tokens.teal} onPress={sendForSignature} icon={<Send size={17} />} full>{sending ? "מכין קישור…" : "שלח לחתימה (קישור)"}</ActionButton>
+              <div style={{ display: "flex", gap: 10 }}>
+                <ActionButton tokens={tokens} color={tokens.green} onPress={doShare} icon={<Share2 size={17} />} full>{sharing ? "מכין PDF…" : "שיתוף / PDF"}</ActionButton>
+                <ActionButton tokens={tokens} color={tokens.blue} onPress={doPrint} icon={<Printer size={17} />} full>הדפסה</ActionButton>
+                <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={16} />} small>איפוס</ActionButton>
+              </div>
             </div>
           </div>
 
