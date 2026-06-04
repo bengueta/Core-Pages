@@ -23,4 +23,8 @@ export default defineConfig({
   base: basePath === "/" ? undefined : basePath,
   trailingSlash: "always",
   integrations: [mdx()],
+  // Isolation: inline (empty) PostCSS config so the Astro build never climbs to a
+  // parent postcss.config.* (e.g. Core-Pages' Tailwind config when this lives at
+  // Core-Pages/vault/). Keeps the vault build fully self-contained.
+  vite: { css: { postcss: { plugins: [] } } },
 });

@@ -38,6 +38,13 @@ if (existsSync(join(vaultDir, "package.json"))) {
     BASE_PATH: "/Core-Pages/vault",
     PUBLIC_SITE_URL: "https://bengueta.github.io",
     PUBLIC_GITHUB_REPO_URL: "https://github.com/bengueta/Core-Pages",
+    // Giscus per-article comments (public IDs — not secrets). Threads land in the
+    // dedicated "Comments" category (Announcement type: only maintainers + giscus
+    // create them, visitors only comment), keeping the forum categories clean.
+    PUBLIC_GISCUS_REPO: "bengueta/Core-Pages",
+    PUBLIC_GISCUS_REPO_ID: "R_kgDOSiaiPA",
+    PUBLIC_GISCUS_CATEGORY: "Comments",
+    PUBLIC_GISCUS_CATEGORY_ID: "DIC_kwDOSiaiPM4C-fyl",
   };
   run(pnpm, ["install", "--frozen-lockfile"], vaultDir, vaultEnv);
   run(pnpm, ["run", "validate"], vaultDir, vaultEnv);
