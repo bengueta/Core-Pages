@@ -16,10 +16,22 @@
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.12",
+    "@astrojs/react": "^4.2.7",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/vite": "^4.1.13",
     "astro": "^5.15.9",
-    "gray-matter": "^4.0.3"
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.18.2",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^0.469.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tailwindcss": "^4.1.13",
+    "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
     "typescript": "^5.9.3"
   }
 }
