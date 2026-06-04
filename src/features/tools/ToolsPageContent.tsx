@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Palette, Lock } from "lucide-react";
+import { Calculator, Palette, FileText } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { TOOL_ROUTES } from "@/lib/routes/tools";
@@ -62,10 +62,10 @@ const CARDS = [
     icon: Palette,
   },
   {
-    id: "soon",
-    title: "בקרוב... נעול מסטורי",
-    description: "כלי חדש בתהליך פיתוח. נעול עד להשקה.",
-    icon: Lock,
+    id: "quote",
+    title: "הצעת מחיר / חשבונית",
+    description: "מחולל הצעות מחיר וחשבוניות מעוצבות עם פריטים, הנחה ומע״מ והדפסה ל-PDF.",
+    icon: FileText,
   },
 ] as const;
 
@@ -200,6 +200,14 @@ export default function ToolsPageContent() {
                   className="absolute inset-0 z-20"
                 >
                   <span className="sr-only">פתח כלי צבעים וטוקני עיצוב</span>
+                </Link>
+              ) : card.id === "quote" ? (
+                <Link
+                  href={TOOL_ROUTES.quote}
+                  aria-label="פתח מחולל הצעת מחיר וחשבונית"
+                  className="absolute inset-0 z-20"
+                >
+                  <span className="sr-only">פתח מחולל הצעת מחיר וחשבונית</span>
                 </Link>
               ) : null}
               {/* Glass overlay – inner highlight */}
