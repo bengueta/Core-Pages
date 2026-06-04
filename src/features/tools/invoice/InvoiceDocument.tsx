@@ -3,10 +3,10 @@ import {
   formatMoney,
   lineTotal,
   readableOn,
-  type Asset,
   type Block,
   type InvoiceDoc,
 } from "./engine";
+import type { LiveAsset } from "./storage";
 
 const PAPER_INK = "#1a1a22";
 const PAPER_MUTED = "#6b7280";
@@ -36,7 +36,7 @@ function TotalRow({ label, value, muted = false }: { label: string; value: strin
   );
 }
 
-function renderBlock(block: Block, doc: InvoiceDoc, assets: Asset[], accent: string): React.ReactNode {
+function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent: string): React.ReactNode {
   const fmt = (v: number) => formatMoney(v, doc.currency);
   const onAccent = readableOn(accent);
   const centered = block.span === 2;
@@ -48,7 +48,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: Asset[], accent: str
         <div style={{ display: "flex", gap: 14, alignItems: "flex-start", justifyContent: centered ? "center" : "flex-start", textAlign: centered ? "center" : "start" }}>
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo.dataURL} alt="" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, flexShrink: 0 }} />
+            <img src={logo.url} alt="" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, flexShrink: 0 }} />
           ) : null}
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: PAPER_INK, letterSpacing: "-0.01em" }}>{doc.bizName || "שם העסק"}</div>
@@ -149,7 +149,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: Asset[], accent: str
           <div style={{ width: 180, height: 64, borderBottom: `1.5px solid ${PAPER_INK}`, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 2 }}>
             {sig ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={sig.dataURL} alt="" style={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain" }} />
+              <img src={sig.url} alt="" style={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain" }} />
             ) : null}
           </div>
           {block.signerName ? <div style={{ fontSize: 12.5, fontWeight: 600, color: PAPER_INK, marginTop: 5 }}>{block.signerName}</div> : null}
@@ -187,7 +187,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: Asset[], accent: str
   }
 }
 
-export function InvoiceDocument({ doc, assets }: { doc: InvoiceDoc; assets: Asset[] }) {
+export function InvoiceDocument({ doc, assets }: { doc: InvoiceDoc; assets: LiveAsset[] }) {
   const accent = doc.accentColor || "#8a6327";
   const visible = doc.blocks.filter((b) => !b.hidden);
 

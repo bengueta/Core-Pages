@@ -6,38 +6,21 @@ import { ImagePlus, PenLine, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { ActionButton, SegmentedControl, glass } from "../shared";
 import type { Tokens } from "../shared";
-import { newItemId, type Asset, type AssetKind } from "./engine";
+import type { AssetKind } from "./engine";
+import type { LiveAsset } from "./storage";
 import { SignaturePad } from "./SignaturePad";
 
-const MAX_BYTES = 700 * 1024; // ~700KB per asset
+const MAX_RAW_BYTES = 15 * 1024 * 1024; // accept large uploads; we downscale before storing
 
 const KIND_LABEL: Record<AssetKind, string> = { logo: "לוגו", signature: "חתימה" };
 
-function readImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith("image/")) return reject(new Error("יש לבחור קובץ תמונה"));
-    if (file.size > MAX_BYTES) return reject(new Error("הקובץ גדול מדי (עד 700KB)"));
-    const r = new FileReader();
-    r.onload = () => (typeof r.result === "string" ? resolve(r.result) : reject(new Error("שגיאה בקריאה")));
-    r.onerror = () => reject(new Error("שגיאה בקריאה"));
-    r.readAsDataURL(file);
-  });
-}
-
-function Thumb({ asset, size = 56 }: { asset: Asset; size?: number }) {
+function Thumb({ asset, size = 56 }: { asset: LiveAsset; size?: number }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={asset.dataURL}
+      src={asset.url}
       alt={asset.name}
-      style={{
-        width: size,
-        height: size,
-        objectFit: "contain",
-        borderRadius: 10,
-        background: asset.kind === "signature" ? "rgba(255,255,255,0.9)" : "#fff",
-        padding: 4,
-      }}
+      style={{ width: size, height: size, objectFit: "contain", borderRadius: 10, background: asset.kind === "signature" ? "rgba(255,255,255,0.9)" : "#fff", padding: 4 }}
     />
   );
 }
@@ -53,7 +36,7 @@ export function AssetPicker({
   onManage,
 }: {
   tokens: Tokens;
-  assets: Asset[];
+  assets: LiveAsset[];
   kind: AssetKind;
   value: string | null | undefined;
   onChange: (id: string | null) => void;
@@ -70,13 +53,7 @@ export function AssetPicker({
             type="button"
             onClick={() => onChange(sel ? null : a.id)}
             aria-label={`בחר ${a.name}`}
-            style={{
-              padding: 3,
-              borderRadius: 12,
-              border: `2px solid ${sel ? tokens.blue : "transparent"}`,
-              background: sel ? `${tokens.blue}22` : tokens.fill4,
-              cursor: "pointer",
-            }}
+            style={{ padding: 3, borderRadius: 12, border: `2px solid ${sel ? tokens.blue : "transparent"}`, background: sel ? `${tokens.blue}22` : tokens.fill4, cursor: "pointer" }}
           >
             <Thumb asset={a} size={48} />
           </button>
@@ -86,18 +63,7 @@ export function AssetPicker({
         type="button"
         onClick={onManage}
         aria-label={`הוסף ${KIND_LABEL[kind]}`}
-        style={{
-          width: 54,
-          height: 54,
-          borderRadius: 12,
-          border: `1px dashed ${tokens.sep}`,
-          background: tokens.fill4,
-          color: tokens.label2,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+        style={{ width: 54, height: 54, borderRadius: 12, border: `1px dashed ${tokens.sep}`, background: tokens.fill4, color: tokens.label2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
       >
         <Plus size={18} />
       </button>
@@ -111,14 +77,16 @@ export function AssetManager({
   tokens,
   assets,
   initialKind = "logo",
-  onAdd,
+  onAddImage,
+  onAddSignature,
   onDelete,
   onClose,
 }: {
   tokens: Tokens;
-  assets: Asset[];
+  assets: LiveAsset[];
   initialKind?: AssetKind;
-  onAdd: (asset: Asset) => void;
+  onAddImage: (kind: AssetKind, file: File) => void;
+  onAddSignature: (dataURL: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
@@ -129,18 +97,18 @@ export function AssetManager({
 
   const list = assets.filter((a) => a.kind === kind);
 
-  const addAsset = (dataURL: string, name: string) =>
-    onAdd({ id: newItemId(), kind, name, dataURL, createdAt: new Date().toISOString() });
-
-  const onFile = async (file: File | undefined) => {
+  const onFile = (file: File | undefined) => {
     if (!file) return;
-    try {
-      const dataURL = await readImage(file);
-      setError(null);
-      addAsset(dataURL, file.name.replace(/\.[^.]+$/, "").slice(0, 24) || KIND_LABEL[kind]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "שגיאה");
+    if (!file.type.startsWith("image/")) {
+      setError("יש לבחור קובץ תמונה");
+      return;
     }
+    if (file.size > MAX_RAW_BYTES) {
+      setError("הקובץ גדול מדי (עד 15MB)");
+      return;
+    }
+    setError(null);
+    onAddImage(kind, file);
   };
 
   if (typeof document === "undefined") return null;
@@ -148,50 +116,22 @@ export function AssetManager({
   return createPortal(
     <div
       onMouseDown={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 10000,
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
+      style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
     >
       <div
         dir="rtl"
         onMouseDown={(e) => e.stopPropagation()}
-        style={{
-          width: "min(560px, 100%)",
-          maxHeight: "88vh",
-          overflow: "auto",
-          background: "rgba(20,20,26,0.96)",
-          backdropFilter: "blur(48px) saturate(180%)",
-          WebkitBackdropFilter: "blur(48px) saturate(180%)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          borderRadius: tokens.r28,
-          padding: 22,
-          color: tokens.label1,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
-        }}
+        style={{ width: "min(560px, 100%)", maxHeight: "88vh", overflow: "auto", background: "rgba(20,20,26,0.96)", backdropFilter: "blur(48px) saturate(180%)", WebkitBackdropFilter: "blur(48px) saturate(180%)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: tokens.r28, padding: 22, color: tokens.label1, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h3 style={{ fontSize: 19, fontWeight: 800 }}>ספריית נכסים</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="סגור"
-            style={{ width: 34, height: 34, borderRadius: 999, border: "none", background: tokens.fill3, color: tokens.label1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-          >
+          <button type="button" onClick={onClose} aria-label="סגור" style={{ width: 34, height: 34, borderRadius: 999, border: "none", background: tokens.fill3, color: tokens.label1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={18} />
           </button>
         </div>
 
         <p style={{ fontSize: 12.5, color: tokens.label3, marginBottom: 14, lineHeight: 1.6 }}>
-          מקור אמת אחד — מעלים פעם אחת, משתמשים בכל מסמך. נשמר בדפדפן בלבד.
+          מקור אמת אחד — מעלים פעם אחת, משתמשים בכל מסמך. נשמר בדפדפן בלבד (IndexedDB), תמונות נדחסות אוטומטית.
         </p>
 
         <div style={{ marginBottom: 16 }}>
@@ -214,7 +154,7 @@ export function AssetManager({
           <SignaturePad
             tokens={tokens}
             onSave={(dataURL) => {
-              addAsset(dataURL, `חתימה ${list.length + 1}`);
+              onAddSignature(dataURL);
               setDrawing(false);
             }}
             onCancel={() => setDrawing(false)}
@@ -241,12 +181,7 @@ export function AssetManager({
                   <div key={a.id} style={{ ...glass("thin"), borderRadius: tokens.r16, padding: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                     <Thumb asset={a} />
                     <span style={{ fontSize: 11, color: tokens.label2, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(a.id)}
-                      aria-label="מחק"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "transparent", color: tokens.red, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-                    >
+                    <button type="button" onClick={() => onDelete(a.id)} aria-label="מחק" style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: "transparent", color: tokens.red, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                       <Trash2 size={13} /> מחק
                     </button>
                   </div>

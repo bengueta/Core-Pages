@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Copy, FilePlus2, FileText, FolderOpen, Home, Images, Layers, Printer, RotateCcw, Save, Trash2, X } from "lucide-react";
+import { Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, Printer, RotateCcw, Save, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
@@ -11,7 +11,6 @@ import { BlockBuilder } from "./BlockBuilder";
 import { BlockEditor } from "./BlockEditor";
 import { InvoiceDocument } from "./InvoiceDocument";
 import {
-  ASSETS_KEY,
   BLOCK_META,
   TEMPLATES,
   applyTemplate,
@@ -21,7 +20,6 @@ import {
   formatMoney,
   newItemId,
   nextDocNumber,
-  type Asset,
   type AssetKind,
   type Block,
   type BlockType,
@@ -29,6 +27,20 @@ import {
   type InvoiceDoc,
   type LineItem,
 } from "./engine";
+import {
+  buildBackup,
+  compressImageFile,
+  dataUrlToBlob,
+  idbDeleteAsset,
+  idbGetAllAssets,
+  idbPutAsset,
+  migrateLegacyAssets,
+  restoreAssets,
+  toLive,
+  type BackupFile,
+  type LiveAsset,
+  type StoredAsset,
+} from "./storage";
 
 const STORAGE_KEY = "tool_invoice_doc";
 const LIBRARY_KEY = "tool_invoice_library";
@@ -50,16 +62,16 @@ function freshDoc(docType: DocType = "quote"): InvoiceDoc {
 }
 
 /** Tolerate older saved docs that predate the block/asset model. */
-function migrate(parsed: Partial<InvoiceDoc> & { bizLogo?: string | null }): { doc: InvoiceDoc; logoAsset: Asset | null } {
+function migrate(parsed: Partial<InvoiceDoc> & { bizLogo?: string | null }): { doc: InvoiceDoc; logoDataUrl: string | null } {
   const doc: InvoiceDoc = { ...defaultDoc, ...parsed } as InvoiceDoc;
   if (!Array.isArray(doc.blocks) || !doc.blocks.length) doc.blocks = defaultBlocks(doc.docType);
   if (!Array.isArray(doc.items) || !doc.items.length) doc.items = defaultDoc.items;
-  let logoAsset: Asset | null = null;
+  let logoDataUrl: string | null = null;
   if (parsed.bizLogo && !doc.logoAssetId) {
-    logoAsset = { id: newItemId(), kind: "logo", name: "לוגו", dataURL: parsed.bizLogo, createdAt: new Date().toISOString() };
-    doc.logoAssetId = logoAsset.id;
+    logoDataUrl = parsed.bizLogo;
+    doc.logoAssetId = newItemId();
   }
-  return { doc, logoAsset };
+  return { doc, logoDataUrl };
 }
 
 export function InvoiceShell() {
@@ -69,34 +81,64 @@ export function InvoiceShell() {
   const tokens = getTokens(isDark);
 
   const [doc, setDoc] = useState<InvoiceDoc>(defaultDoc);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<LiveAsset[]>([]);
   const [library, setLibrary] = useState<SavedDoc[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [assetModal, setAssetModal] = useState<{ open: boolean; kind: AssetKind }>({ open: false, kind: "logo" });
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const assetsRef = useRef<LiveAsset[]>([]);
+  assetsRef.current = assets;
 
   useEffect(() => setMounted(true), []);
 
+  // Async load: doc + library from localStorage, assets from IndexedDB (with one-time migration).
   useEffect(() => {
     if (!mounted) return;
-    try {
-      const rawAssets = localStorage.getItem(ASSETS_KEY);
-      const loadedAssets: Asset[] = rawAssets ? (JSON.parse(rawAssets) as Asset[]) : [];
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const { doc: migrated, logoAsset } = migrate(JSON.parse(raw));
-        setDoc(migrated);
-        if (logoAsset) loadedAssets.push(logoAsset);
+    let alive = true;
+    (async () => {
+      let logoDataUrl: string | null = null;
+      let logoId: string | null = null;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const { doc: migrated, logoDataUrl: logo } = migrate(JSON.parse(raw));
+          if (alive) setDoc(migrated);
+          logoDataUrl = logo;
+          logoId = logo ? migrated.logoAssetId : null;
+        }
+        const rawLib = localStorage.getItem(LIBRARY_KEY);
+        if (rawLib) {
+          const arr = JSON.parse(rawLib) as SavedDoc[];
+          if (alive && Array.isArray(arr)) setLibrary(arr);
+        }
+      } catch {
+        /* ignore corrupt storage */
       }
-      if (Array.isArray(loadedAssets)) setAssets(loadedAssets);
-      const rawLib = localStorage.getItem(LIBRARY_KEY);
-      if (rawLib) {
-        const arr = JSON.parse(rawLib) as SavedDoc[];
-        if (Array.isArray(arr)) setLibrary(arr);
+      try {
+        await migrateLegacyAssets();
+        // Migrate an inline legacy logo (from the very first doc model) into IndexedDB.
+        if (logoDataUrl && logoId) {
+          const blob = await dataUrlToBlob(logoDataUrl);
+          await idbPutAsset({ id: logoId, kind: "logo", name: "לוגו", blob, createdAt: new Date().toISOString() });
+        }
+        const stored = await idbGetAllAssets();
+        if (alive) setAssets(stored.map(toLive));
+      } catch {
+        /* IndexedDB unavailable — assets simply stay empty */
       }
-    } catch {
-      /* ignore corrupt storage */
-    }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
+
+  // Revoke object URLs on unmount.
+  useEffect(() => {
+    return () => {
+      for (const a of assetsRef.current) URL.revokeObjectURL(a.url);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;
@@ -104,12 +146,6 @@ export function InvoiceShell() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
     } catch {}
   }, [doc, mounted]);
-  useEffect(() => {
-    if (!mounted) return;
-    try {
-      localStorage.setItem(ASSETS_KEY, JSON.stringify(assets));
-    } catch {}
-  }, [assets, mounted]);
   useEffect(() => {
     if (!mounted) return;
     try {
@@ -148,15 +184,61 @@ export function InvoiceShell() {
   const patchItem = (id: string, patch: Partial<LineItem>) => setDoc((prev) => ({ ...prev, items: prev.items.map((it) => (it.id === id ? { ...it, ...patch } : it)) }));
   const removeItem = (id: string) => setDoc((prev) => ({ ...prev, items: prev.items.length > 1 ? prev.items.filter((it) => it.id !== id) : prev.items }));
 
-  /* assets */
-  const addAsset = (a: Asset) => setAssets((prev) => [a, ...prev]);
-  const deleteAsset = (id: string) => {
+  /* assets (IndexedDB blobs + object URLs) */
+  const storeAsset = async (kind: AssetKind, name: string, blob: Blob) => {
+    const stored: StoredAsset = { id: newItemId(), kind, name, blob, createdAt: new Date().toISOString() };
+    await idbPutAsset(stored);
+    setAssets((prev) => [toLive(stored), ...prev]);
+  };
+  const onAddImage = async (kind: AssetKind, file: File) => {
+    const blob = await compressImageFile(file);
+    const name = file.name.replace(/\.[^.]+$/, "").slice(0, 24) || (kind === "logo" ? "לוגו" : "חתימה");
+    await storeAsset(kind, name, blob);
+  };
+  const onAddSignature = async (dataURL: string) => {
+    const blob = await dataUrlToBlob(dataURL);
+    await storeAsset("signature", `חתימה ${assets.filter((a) => a.kind === "signature").length + 1}`, blob);
+  };
+  const deleteAsset = async (id: string) => {
+    const target = assetsRef.current.find((a) => a.id === id);
+    if (target) URL.revokeObjectURL(target.url);
+    await idbDeleteAsset(id);
     setAssets((prev) => prev.filter((a) => a.id !== id));
     setDoc((prev) => ({
       ...prev,
       logoAssetId: prev.logoAssetId === id ? null : prev.logoAssetId,
       blocks: prev.blocks.map((b) => (b.signatureAssetId === id ? { ...b, signatureAssetId: null } : b)),
     }));
+  };
+
+  /* backup / restore (full local snapshot — never leaves the device) */
+  const exportBackup = async () => {
+    const backup = await buildBackup(doc, library);
+    const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `core-invoice-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const importBackup = async (file: File) => {
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text) as BackupFile;
+      if (backup.kind !== "core-invoice-backup") {
+        window.alert("קובץ גיבוי לא תקין");
+        return;
+      }
+      for (const a of assetsRef.current) URL.revokeObjectURL(a.url);
+      const live = await restoreAssets(backup);
+      setAssets(live);
+      if (backup.doc) setDoc({ ...defaultDoc, ...(backup.doc as InvoiceDoc) });
+      if (Array.isArray(backup.library)) setLibrary(backup.library as SavedDoc[]);
+      setSelectedId(null);
+    } catch {
+      window.alert("שגיאה בקריאת הגיבוי");
+    }
   };
 
   /* templates */
@@ -370,6 +452,11 @@ export function InvoiceShell() {
               ) : (
                 <p style={{ fontSize: 12, color: tokens.label3, padding: "12px 16px" }}>אין מסמכים שמורים עדיין.</p>
               )}
+              <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderTop: `0.5px solid ${tokens.sep}` }}>
+                <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
+                <ActionButton tokens={tokens} color={tokens.label2} onPress={exportBackup} icon={<Download size={15} />} small full>גיבוי לקובץ</ActionButton>
+                <ActionButton tokens={tokens} color={tokens.label2} onPress={() => backupInputRef.current?.click()} icon={<Upload size={15} />} small full>שחזור מקובץ</ActionButton>
+              </div>
             </Section>
 
             <div style={{ display: "flex", gap: 10 }}>
@@ -395,7 +482,8 @@ export function InvoiceShell() {
           tokens={tokens}
           assets={assets}
           initialKind={assetModal.kind}
-          onAdd={addAsset}
+          onAddImage={onAddImage}
+          onAddSignature={onAddSignature}
           onDelete={deleteAsset}
           onClose={() => setAssetModal((m) => ({ ...m, open: false }))}
         />

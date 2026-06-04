@@ -8,7 +8,6 @@ import { AssetPicker } from "./AssetManager";
 import { AreaField, ItemRow, TextField } from "./fields";
 import {
   CURRENCY_SYMBOL,
-  type Asset,
   type AssetKind,
   type Block,
   type BlockAlign,
@@ -17,6 +16,7 @@ import {
   type InvoiceDoc,
   type LineItem,
 } from "./engine";
+import type { LiveAsset } from "./storage";
 
 const ALIGN_OPTS: Array<{ value: BlockAlign; label: string }> = [
   { value: "right", label: "ימין" },
@@ -39,7 +39,7 @@ export function BlockEditor({
   tokens: Tokens;
   doc: InvoiceDoc;
   block: Block;
-  assets: Asset[];
+  assets: LiveAsset[];
   onDocChange: (patch: Partial<InvoiceDoc>) => void;
   updateBlock: (patch: Partial<Block>) => void;
   addItem: () => void;
