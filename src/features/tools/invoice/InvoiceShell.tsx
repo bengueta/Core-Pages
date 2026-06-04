@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, LayoutTemplate, MoreHorizontal, Palette, Plus, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, LayoutTemplate, MoreHorizontal, Plus, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, getTokens, glass } from "../shared";
@@ -13,7 +13,6 @@ import { InvoiceDocument } from "./InvoiceDocument";
 import { ClientSignModal } from "./ClientSignModal";
 import { SigningView } from "./SigningView";
 import { HomeView } from "./HomeView";
-import { buildStarter, type Starter } from "./starters";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
 import { buildSignUrl, decodeSignPayload, encodeSignPayload, readSignFragment } from "./signlink";
@@ -257,6 +256,8 @@ export function InvoiceShell() {
       span: BLOCK_META[type].defaultSpan,
       ...(type === "signature" ? { align: "right", signerName: "", signatureAssetId: null } : {}),
       ...(type === "text" ? { title: "", body: "" } : {}),
+      ...(type === "heading" ? { title: "כותרת מקטע", body: "", align: "right" as const } : {}),
+      ...(type === "bullets" ? { title: "", body: "פריט ראשון\nפריט שני" } : {}),
       ...(type === "spacer" ? { height: 24 } : {}),
     };
     setDoc((prev) => ({ ...prev, blocks: [...prev.blocks, nb] }));
@@ -384,6 +385,10 @@ export function InvoiceShell() {
   const openSaveDialog = () => setSaveDialog({ open: true, name: `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim() });
   const confirmSave = () => {
     const name = saveDialog.name.trim() || `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""}`.trim();
+    if (library.some((e) => e.name === name)) {
+      toast("כבר קיים מסמך בשם הזה");
+      return;
+    }
     setLibrary((prev) => [{ id: newItemId(), name, savedAt: new Date().toISOString(), doc }, ...prev].slice(0, MAX_SAVES));
     setSaveDialog({ open: false, name: "" });
     toast("נשמר ✓");
@@ -414,12 +419,13 @@ export function InvoiceShell() {
     setSelectedId(null);
     toast("נטען ✓");
   };
-  const pickStarter = (s: Starter) => {
-    setDoc(buildStarter(s));
+  const createDoc = (d: InvoiceDoc) => {
+    setDoc(d);
     setSelectedId(null);
     setSheetState("half");
     setView("builder");
   };
+  const rawDeleteSaved = (id: string) => setLibrary((prev) => prev.filter((e) => e.id !== id));
   const openSavedFromHome = (entry: SavedDoc) => {
     setDoc({ ...defaultDoc, ...entry.doc });
     setSelectedId(null);
@@ -490,10 +496,10 @@ export function InvoiceShell() {
         library={library}
         presets={blockPresets}
         assets={assets}
-        onPickStarter={pickStarter}
+        onCreate={createDoc}
         onContinue={() => setView("builder")}
         onOpenSaved={openSavedFromHome}
-        onDeleteSaved={deleteSaved}
+        onDeleteSaved={rawDeleteSaved}
         onDuplicateSaved={duplicateSaved}
       />
     );
@@ -598,16 +604,9 @@ export function InvoiceShell() {
         <div className="inv-grabber" onClick={() => setMoreOpen(false)}>
           <span />
         </div>
-        <Section tokens={tokens} title="תבנית" titleIcon={<Palette size={13} style={{ color: tokens.label3 }} />}>
-          <div style={{ display: "flex", gap: 8, padding: "12px 14px", flexWrap: "wrap" }}>
-            {TEMPLATES.map((t) => (
-              <button key={t.id} type="button" onClick={() => useTemplate(t.id)} style={{ flex: "1 1 90px", ...glass("thin"), borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, padding: "10px 12px", color: tokens.label1, fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                <span style={{ width: 12, height: 12, borderRadius: "50%", background: t.accentColor }} />
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </Section>
+        <div style={{ padding: "0 2px 6px" }}>
+          <ActionButton tokens={tokens} color={tokens.blue} onPress={() => { setMoreOpen(false); setView("home"); }} icon={<LayoutTemplate size={16} />} full>תבניות וכל השמירות</ActionButton>
+        </div>
         <Section tokens={tokens} title="צבע מותג" titleIcon={<SlidersHorizontal size={13} style={{ color: tokens.label3 }} />}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", flexWrap: "wrap" }}>
             <input type="color" value={doc.accentColor} onChange={(e) => onDocChange({ accentColor: e.target.value })} aria-label="צבע מותג" style={{ width: 38, height: 38, border: "none", borderRadius: tokens.r10, background: "transparent", cursor: "pointer", padding: 0 }} />
@@ -618,29 +617,8 @@ export function InvoiceShell() {
             </div>
           </div>
         </Section>
-        <Section tokens={tokens} title="מסמכים שמורים">
-          {library.length ? (
-            library.map((e, i) => (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", borderBottom: i === library.length - 1 ? undefined : `0.5px solid ${tokens.sep}` }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: tokens.label1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: tokens.label3 }}>{new Date(e.savedAt).toLocaleDateString("he-IL", { day: "numeric", month: "short" })}</div>
-                </div>
-                {[
-                  { lbl: "טען", col: tokens.blue, fn: () => { loadSaved(e); setMoreOpen(false); }, ic: <FolderOpen size={15} /> },
-                  { lbl: "שכפל", col: tokens.green, fn: () => duplicateSaved(e), ic: <Copy size={15} /> },
-                  { lbl: "מחק", col: tokens.red, fn: () => deleteSaved(e.id), ic: <Trash2 size={15} /> },
-                ].map((b) => (
-                  <button key={b.lbl} type="button" onClick={b.fn} aria-label={b.lbl} style={{ width: 32, height: 32, borderRadius: tokens.r10, border: "none", background: `${b.col}18`, color: b.col, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {b.ic}
-                  </button>
-                ))}
-              </div>
-            ))
-          ) : (
-            <p style={{ fontSize: 12, color: tokens.label3, padding: "12px 16px" }}>אין מסמכים שמורים עדיין.</p>
-          )}
-          <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderTop: `0.5px solid ${tokens.sep}` }}>
+        <Section tokens={tokens} title="גיבוי ואיפוס">
+          <div style={{ display: "flex", gap: 10, padding: "12px 14px" }}>
             <ActionButton tokens={tokens} color={tokens.label2} onPress={exportBackup} icon={<Download size={15} />} small full>גיבוי</ActionButton>
             <ActionButton tokens={tokens} color={tokens.label2} onPress={() => backupInputRef.current?.click()} icon={<Upload size={15} />} small full>שחזור</ActionButton>
             <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={15} />} small>איפוס</ActionButton>
@@ -742,10 +720,10 @@ export function InvoiceShell() {
       <div id="page">
         <header className="inv-no-print" style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass("ultra"), borderRadius: 999, padding: "8px 14px 8px 16px" }}>
+            <button type="button" onClick={() => setView("home")} title="תבניות ושמירות" style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass("ultra"), borderRadius: 999, padding: "8px 14px 8px 16px", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
               <FileText size={22} style={{ color: tokens.label2 }} />
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", color: tokens.label2 }}>Document Builder</span>
-            </div>
+            </button>
             <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass("ultra"), borderRadius: 999, padding: "8px 14px 8px 16px", textDecoration: "none", color: tokens.label2 }}>
               <Home size={22} />
               <span style={{ fontSize: 12, fontWeight: 700 }}>חזרה לדף הבית</span>

@@ -189,6 +189,29 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
           <div style={{ fontSize: 12, color: PAPER_MUTED, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{doc.notes}</div>
         </div>
       ) : null;
+    case "heading": {
+      const a = block.align ?? "right";
+      return (
+        <div style={{ textAlign: a === "center" ? "center" : a === "left" ? "left" : "start" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: accent, letterSpacing: "-0.01em" }}>{block.title || "כותרת"}</div>
+          {block.body ? <div style={{ fontSize: 12.5, color: PAPER_MUTED, marginTop: 3, lineHeight: 1.6 }}>{block.body}</div> : null}
+          <div style={{ height: 2, width: 46, background: accent, borderRadius: 2, marginTop: 6, marginInlineStart: a === "center" ? "auto" : undefined, marginInlineEnd: a === "center" ? "auto" : a === "left" ? "auto" : undefined }} />
+        </div>
+      );
+    }
+    case "bullets": {
+      const lines = (block.body || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      return (
+        <div>
+          {block.title ? <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 6 }}>{block.title}</div> : null}
+          <ul style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+            {(lines.length ? lines : ["פריט ראשון", "פריט שני"]).map((l, i) => (
+              <li key={i} style={{ fontSize: 12.5, color: PAPER_INK, lineHeight: 1.6 }}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
     case "text":
       return (
         <div style={{ textAlign: block.align === "center" ? "center" : block.align === "left" ? "left" : "start" }}>

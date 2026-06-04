@@ -30,6 +30,8 @@ export type BlockType =
   | "signature"
   | "payment"
   | "notes"
+  | "heading"
+  | "bullets"
   | "text"
   | "divider"
   | "spacer";
@@ -73,6 +75,8 @@ export const BLOCK_META: Record<BlockType, BlockMeta> = {
   signature: { type: "signature", label: "חתימה", defaultSpan: 1, unique: false },
   payment: { type: "payment", label: "פרטי תשלום", defaultSpan: 2, unique: true },
   notes: { type: "notes", label: "הערות ותנאים", defaultSpan: 2, unique: true },
+  heading: { type: "heading", label: "כותרת מקטע", defaultSpan: 2, unique: false },
+  bullets: { type: "bullets", label: "רשימת נקודות", defaultSpan: 2, unique: false },
   text: { type: "text", label: "טקסט חופשי", defaultSpan: 2, unique: false },
   divider: { type: "divider", label: "קו מפריד", defaultSpan: 2, unique: false },
   spacer: { type: "spacer", label: "רווח", defaultSpan: 1, unique: false },
@@ -88,6 +92,8 @@ export const ADDABLE_BLOCKS: BlockType[] = [
   "signature",
   "payment",
   "notes",
+  "heading",
+  "bullets",
   "text",
   "divider",
   "spacer",

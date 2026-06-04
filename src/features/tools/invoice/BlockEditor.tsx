@@ -273,6 +273,24 @@ export function BlockEditor({
       return <AreaField tokens={tokens} label="חשבון בנק / אמצעי תשלום" value={doc.payInfo} onChange={(v) => onDocChange({ payInfo: v })} placeholder="בנק / סניף / חשבון, או קישור לתשלום…" />;
     case "notes":
       return <AreaField tokens={tokens} label="טקסט חופשי" value={doc.notes} onChange={(v) => onDocChange({ notes: v })} placeholder="תנאי תשלום, תוקף, הערות…" />;
+    case "heading":
+      return (
+        <div>
+          <TextField tokens={tokens} label="כותרת" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="כותרת המקטע" />
+          <TextField tokens={tokens} label="כותרת משנה (לא חובה)" value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder="תיאור קצר" last />
+          <div style={{ padding: rowPad }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>יישור</label>
+            <SegmentedControl<BlockAlign> tokens={tokens} value={block.align ?? "right"} onChange={(v) => updateBlock({ align: v })} options={ALIGN_OPTS} />
+          </div>
+        </div>
+      );
+    case "bullets":
+      return (
+        <div>
+          <TextField tokens={tokens} label="כותרת (לא חובה)" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="כותרת הרשימה" />
+          <AreaField tokens={tokens} label="נקודות — כל שורה = נקודה" value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder={"שורה ראשונה\nשורה שנייה"} />
+        </div>
+      );
     case "text":
       return (
         <div>
