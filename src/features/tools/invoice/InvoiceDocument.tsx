@@ -9,6 +9,7 @@ import {
 } from "./engine";
 import type { LiveAsset } from "./storage";
 import { formatSignedAt, shortHash } from "./sign";
+import { amountToHebrewWords } from "./numberToWords";
 
 const PAPER_INK = "#1a1a22";
 const PAPER_MUTED = "#6b7280";
@@ -139,6 +140,11 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
               <span style={{ fontSize: 14, fontWeight: 700, color: onAccent }}>סה״כ לתשלום</span>
               <span style={{ fontSize: 18, fontWeight: 800, color: onAccent }}>{fmt(t.total)}</span>
             </div>
+            {block.amountInWords && doc.currency === "ILS" ? (
+              <div style={{ fontSize: 11.5, color: PAPER_MUTED, marginTop: 6, textAlign: "start", lineHeight: 1.5 }}>
+                במילים: {amountToHebrewWords(t.total)}
+              </div>
+            ) : null}
           </div>
         </div>
       );

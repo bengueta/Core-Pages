@@ -6,7 +6,7 @@ import { Copy, FileText, FolderOpen, Home, LayoutTemplate, PenLine, Save, Sparkl
 
 import { ActionButton, getTokens, glass } from "../shared";
 import { InvoiceDocument } from "./InvoiceDocument";
-import { BLOCK_META, DOC_TYPE_LABEL, type DocType, type InvoiceDoc } from "./engine";
+import { BLOCK_META, DOC_TYPE_LABEL, formatMoney, type DocType, type InvoiceDoc, type SavedClient, type SavedService } from "./engine";
 import type { LiveAsset } from "./storage";
 import type { PresetStore } from "./presets";
 import { STARTERS, STRUCTURES, buildConfigured, previewDoc } from "./starters";
@@ -40,26 +40,34 @@ export function HomeView({
   library,
   presets,
   assets,
+  clients,
+  services,
   onCreate,
   onContinue,
   onOpenSaved,
   onDeleteSaved,
   onDuplicateSaved,
+  onDeleteClient,
+  onDeleteService,
 }: {
   isDark: boolean;
   library: SavedDoc[];
   presets: PresetStore;
   assets: LiveAsset[];
+  clients: SavedClient[];
+  services: SavedService[];
   onCreate: (doc: InvoiceDoc) => void;
   onContinue: () => void;
   onOpenSaved: (entry: SavedDoc) => void;
   onDeleteSaved: (id: string) => void;
   onDuplicateSaved: (entry: SavedDoc) => void;
+  onDeleteClient: (id: string) => void;
+  onDeleteService: (id: string) => void;
 }) {
   const tokens = getTokens(isDark);
   const [tab, setTab] = useState<"templates" | "saves">("templates");
   const [cfg, setCfg] = useState<{ docType: DocType; structureId: string; accent: string } | null>(null);
-  const [delId, setDelId] = useState<string | null>(null);
+  const [pendingDel, setPendingDel] = useState<{ message: string; run: () => void } | null>(null);
 
   const logos = assets.filter((a) => a.kind === "logo");
   const signatures = assets.filter((a) => a.kind === "signature");
@@ -156,7 +164,7 @@ export function HomeView({
                       {[
                         { lbl: "פתח", col: tokens.blue, fn: () => onOpenSaved(e), ic: <FolderOpen size={15} /> },
                         { lbl: "שכפל", col: tokens.green, fn: () => onDuplicateSaved(e), ic: <Copy size={15} /> },
-                        { lbl: "מחק", col: tokens.red, fn: () => setDelId(e.id), ic: <Trash2 size={15} /> },
+                        { lbl: "מחק", col: tokens.red, fn: () => setPendingDel({ message: "למחוק את המסמך השמור?", run: () => onDeleteSaved(e.id) }), ic: <Trash2 size={15} /> },
                       ].map((b) => (
                         <button key={b.lbl} type="button" onClick={b.fn} aria-label={b.lbl} style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: `${b.col}1f`, color: b.col, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {b.ic}
@@ -182,6 +190,38 @@ export function HomeView({
               </div>
             ) : (
               <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין פריסטים שמורים.</p>
+            )}
+
+            {sectionTitle("לקוחות שמורים", <FolderOpen size={16} style={{ color: tokens.teal }} />)}
+            {clients.length ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {clients.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, ...glass("thin"), border: `1px solid ${tokens.sep}`, borderRadius: 999, padding: "6px 6px 6px 12px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+                    <button type="button" onClick={() => setPendingDel({ message: `למחוק את הלקוח "${c.name}"?`, run: () => onDeleteClient(c.id) })} aria-label="מחק" style={{ width: 24, height: 24, borderRadius: 999, border: "none", background: `${tokens.red}1f`, color: tokens.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין לקוחות שמורים — שמרו לקוח מתוך בלוק הלקוח.</p>
+            )}
+
+            {sectionTitle("קטלוג שירותים", <Sparkles size={16} style={{ color: tokens.blue }} />)}
+            {services.length ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {services.map((s) => (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, ...glass("thin"), border: `1px solid ${tokens.sep}`, borderRadius: 999, padding: "6px 6px 6px 12px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{s.desc} · {formatMoney(s.price, "ILS")}</span>
+                    <button type="button" onClick={() => setPendingDel({ message: `למחוק את "${s.desc}" מהקטלוג?`, run: () => onDeleteService(s.id) })} aria-label="מחק" style={{ width: 24, height: 24, borderRadius: 999, border: "none", background: `${tokens.red}1f`, color: tokens.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין שירותים בקטלוג — שמרו פריטים מתוך בלוק הפריטים.</p>
             )}
 
             {sectionTitle("חתימות", <PenLine size={16} style={{ color: tokens.green }} />)}
@@ -256,13 +296,13 @@ export function HomeView({
       ) : null}
 
       {/* Delete confirm */}
-      {delId ? (
-        <div onMouseDown={() => setDelId(null)} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      {pendingDel ? (
+        <div onMouseDown={() => setPendingDel(null)} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div dir="rtl" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(380px,100%)", background: "rgba(20,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: tokens.r28, padding: 22, color: tokens.label1, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
-            <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, textAlign: "center" }}>למחוק את המסמך השמור?</p>
+            <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, textAlign: "center" }}>{pendingDel.message}</p>
             <div style={{ display: "flex", gap: 10 }}>
-              <ActionButton tokens={tokens} color={tokens.red} onPress={() => { onDeleteSaved(delId); setDelId(null); }} icon={<Trash2 size={16} />} full>אישור מחיקה</ActionButton>
-              <ActionButton tokens={tokens} color={tokens.label2} onPress={() => setDelId(null)} full>ביטול</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.red} onPress={() => { pendingDel.run(); setPendingDel(null); }} icon={<Trash2 size={16} />} full>אישור מחיקה</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.label2} onPress={() => setPendingDel(null)} full>ביטול</ActionButton>
             </div>
           </div>
         </div>

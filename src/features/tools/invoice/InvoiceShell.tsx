@@ -20,7 +20,9 @@ import { PRESETS_KEY, applyPreset, capturePreset, type BlockPreset, type PresetS
 import {
   ADDABLE_BLOCKS,
   BLOCK_META,
+  CLIENTS_KEY,
   DOC_TYPE_LABEL,
+  SERVICES_KEY,
   TEMPLATES,
   applyTemplate,
   calcTotals,
@@ -35,6 +37,8 @@ import {
   type DocType,
   type InvoiceDoc,
   type LineItem,
+  type SavedClient,
+  type SavedService,
 } from "./engine";
 import {
   buildBackup,
@@ -114,6 +118,8 @@ export function InvoiceShell() {
   const [exportOpen, setExportOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [blockPresets, setBlockPresets] = useState<PresetStore>({});
+  const [clients, setClients] = useState<SavedClient[]>([]);
+  const [services, setServices] = useState<SavedService[]>([]);
   const [presetDialog, setPresetDialog] = useState<{ open: boolean; name: string; type: BlockType | null; data: Record<string, unknown> | null }>({ open: false, name: "", type: null, data: null });
   const [confirmState, setConfirmState] = useState<{ open: boolean; message: string; onYes: (() => void) | null }>({ open: false, message: "", onYes: null });
   const askConfirm = (message: string, onYes: () => void) => setConfirmState({ open: true, message, onYes });
@@ -222,6 +228,29 @@ export function InvoiceShell() {
     } catch {}
   }, [blockPresets, mounted]);
 
+  // Client book + service catalog (load once, persist on change).
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      const rc = localStorage.getItem(CLIENTS_KEY);
+      if (rc) setClients(JSON.parse(rc) as SavedClient[]);
+      const rs = localStorage.getItem(SERVICES_KEY);
+      if (rs) setServices(JSON.parse(rs) as SavedService[]);
+    } catch {}
+  }, [mounted]);
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+    } catch {}
+  }, [clients, mounted]);
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(SERVICES_KEY, JSON.stringify(services));
+    } catch {}
+  }, [services, mounted]);
+
   useEffect(() => {
     if (!mounted) return;
     try {
@@ -310,6 +339,36 @@ export function InvoiceShell() {
   };
   const deletePreset = (type: BlockType, id: string) =>
     askConfirm("למחוק את הפריסט?", () => setBlockPresets((prev) => ({ ...prev, [type]: (prev[type] ?? []).filter((p) => p.id !== id) })));
+
+  /* client book */
+  const saveClient = () => {
+    const name = doc.clientName.trim();
+    if (!name) {
+      toast("אין שם לקוח לשמירה");
+      return;
+    }
+    if (clients.some((c) => c.name === name)) {
+      toast("הלקוח כבר שמור");
+      return;
+    }
+    setClients((prev) => [{ id: newItemId(), name, clientId: doc.clientId, addr: doc.clientAddr }, ...prev].slice(0, 100));
+    toast("הלקוח נשמר ✓");
+  };
+  const applyClient = (c: SavedClient) => onDocChange({ clientName: c.name, clientId: c.clientId ?? "", clientAddr: c.addr ?? "" });
+  const deleteClient = (id: string) => setClients((prev) => prev.filter((c) => c.id !== id));
+
+  /* service catalog */
+  const saveServices = () => {
+    const fresh = doc.items.filter((it) => it.desc.trim() && !services.some((s) => s.desc === it.desc.trim()));
+    if (!fresh.length) {
+      toast("אין פריטים חדשים לשמירה");
+      return;
+    }
+    setServices((prev) => [...fresh.map((it) => ({ id: newItemId(), desc: it.desc.trim(), price: it.price })), ...prev].slice(0, 200));
+    toast("נשמר לקטלוג ✓");
+  };
+  const addService = (s: SavedService) => setDoc((prev) => ({ ...prev, items: [...prev.items, { id: newItemId(), desc: s.desc, qty: 1, price: s.price }] }));
+  const deleteService = (id: string) => setServices((prev) => prev.filter((s) => s.id !== id));
 
   /* items */
   const addItem = () => setDoc((prev) => ({ ...prev, items: [...prev.items, { id: newItemId(), desc: "", qty: 1, price: 0 }] }));
@@ -436,14 +495,15 @@ export function InvoiceShell() {
   const deleteSaved = (id: string) => askConfirm("למחוק את המסמך השמור?", () => setLibrary((prev) => prev.filter((e) => e.id !== id)));
 
   const doPrint = () => window.print();
+
+  // Text-only link (no inlined images) so it stays small.
+  const makeSignUrl = async () => buildSignUrl(await encodeSignPayload({ v: 1, doc, assets: [] }));
+
   const sendForSignature = async () => {
     if (sending) return;
     setSending(true);
     try {
-      // Keep the link tiny so it pastes everywhere (WhatsApp etc.): text only,
-      // no inlined images — an embedded logo would blow the URL up to ~50KB+.
-      const encoded = await encodeSignPayload({ v: 1, doc, assets: [] });
-      const url = buildSignUrl(encoded);
+      const url = await makeSignUrl();
       const text = `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""} לחתימה`.trim();
       const nav = navigator as Navigator;
       if (typeof nav.share === "function") {
@@ -460,6 +520,37 @@ export function InvoiceShell() {
       } catch {
         window.prompt("העתיקו את הקישור לחתימה:", url);
       }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Send as a tiny self-contained HTML file that opens the signing page —
+  // avoids pasting a long link into chat entirely.
+  const sendForSignatureFile = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      const url = await makeSignUrl();
+      const title = `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""} לחתימה`.trim();
+      const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><meta http-equiv="refresh" content="0;url=${url}"></head><body style="font-family:system-ui,sans-serif;background:#0c1018;color:#fff;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px"><div><h2 style="font-weight:800">${title}</h2><p style="color:#9aa">נפתח אוטומטית… אם לא, לחצו:</p><a href="${url}" style="display:inline-block;background:#2f8f4e;color:#fff;padding:14px 24px;border-radius:12px;text-decoration:none;font-weight:700">פתח מסמך לחתימה</a></div></body></html>`;
+      const file = new File([html], `${title.replace(/[\\/:*?"<>|]/g, "")}.html`, { type: "text/html" });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (typeof nav.share === "function" && nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title });
+          return;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+        }
+      }
+      const dlUrl = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+      toast("נוצר קובץ לחתימה — שלחו בוואטסאפ");
     } finally {
       setSending(false);
     }
@@ -496,11 +587,15 @@ export function InvoiceShell() {
         library={library}
         presets={blockPresets}
         assets={assets}
+        clients={clients}
+        services={services}
         onCreate={createDoc}
         onContinue={() => setView("builder")}
         onOpenSaved={openSavedFromHome}
         onDeleteSaved={rawDeleteSaved}
         onDuplicateSaved={duplicateSaved}
+        onDeleteClient={deleteClient}
+        onDeleteService={deleteService}
       />
     );
 
@@ -537,6 +632,12 @@ export function InvoiceShell() {
       onSavePreset={() => openPresetDialog(selectedBlock)}
       onApplyPreset={(preset) => applyPresetToBlock(selectedBlock, preset)}
       onDeletePreset={(id) => deletePreset(selectedBlock.type, id)}
+      clients={clients}
+      services={services}
+      onPickClient={applyClient}
+      onSaveClient={saveClient}
+      onAddService={addService}
+      onSaveServices={saveServices}
     />
   ) : null;
 
@@ -647,7 +748,8 @@ export function InvoiceShell() {
   const exportSheet = bottomSheetWrap(() => setExportOpen(false), (
     <>
       <h3 style={{ fontSize: 18, fontWeight: 800, margin: "2px 2px 12px" }}>ייצוא ושיתוף</h3>
-      {exportItem(sending ? "מכין קישור…" : "שלח לחתימה (קישור)", <Send size={18} />, tokens.teal, sendForSignature)}
+      {exportItem(sending ? "מכין…" : "שלח לחתימה (קישור)", <Send size={18} />, tokens.teal, sendForSignature)}
+      {exportItem(sending ? "מכין…" : "שלח לחתימה (קובץ קצר)", <FileText size={18} />, tokens.teal, sendForSignatureFile)}
       {exportItem(sharing ? "מכין PDF…" : "שיתוף PDF (וואטסאפ)", <Share2 size={18} />, tokens.green, doShare)}
       {exportItem("הדפסה / שמירה כ-PDF", <Printer size={18} />, tokens.blue, doPrint)}
       {exportItem("שמירת מסמך בספרייה", <Save size={18} />, tokens.label2, openSaveDialog)}

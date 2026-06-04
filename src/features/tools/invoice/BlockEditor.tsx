@@ -10,6 +10,7 @@ import { DEFAULT_INTENT, formatSignedAt } from "./sign";
 import { supportsPreset, type BlockPreset } from "./presets";
 import {
   CURRENCY_SYMBOL,
+  formatMoney,
   type AssetKind,
   type Block,
   type BlockAlign,
@@ -17,6 +18,8 @@ import {
   type DiscountMode,
   type InvoiceDoc,
   type LineItem,
+  type SavedClient,
+  type SavedService,
 } from "./engine";
 import type { LiveAsset } from "./storage";
 
@@ -42,6 +45,12 @@ export function BlockEditor({
   onSavePreset,
   onApplyPreset,
   onDeletePreset,
+  clients,
+  services,
+  onPickClient,
+  onSaveClient,
+  onAddService,
+  onSaveServices,
 }: {
   tokens: Tokens;
   doc: InvoiceDoc;
@@ -58,6 +67,12 @@ export function BlockEditor({
   onSavePreset: () => void;
   onApplyPreset: (preset: BlockPreset) => void;
   onDeletePreset: (id: string) => void;
+  clients: SavedClient[];
+  services: SavedService[];
+  onPickClient: (c: SavedClient) => void;
+  onSaveClient: () => void;
+  onAddService: (s: SavedService) => void;
+  onSaveServices: () => void;
 }) {
   const symbol = CURRENCY_SYMBOL[doc.currency];
   const rowPad = "12px 16px";
@@ -143,6 +158,21 @@ export function BlockEditor({
     case "client":
       return (
         <div>
+          <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: clients.length ? 8 : 0 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: tokens.label3 }}>ספר לקוחות</label>
+              <button type="button" onClick={onSaveClient} style={{ border: "none", background: `${tokens.green}1f`, color: tokens.green, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>+ שמור לקוח</button>
+            </div>
+            {clients.length ? (
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {clients.map((c) => (
+                  <button key={c.id} type="button" onClick={() => onPickClient(c)} style={{ border: `1px solid ${tokens.sep}`, background: tokens.fill3, color: tokens.label1, borderRadius: 999, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <TextField tokens={tokens} label="שם הלקוח" value={doc.clientName} onChange={(v) => onDocChange({ clientName: v })} placeholder="שם הלקוח / החברה" />
           <TextField tokens={tokens} label="ח.פ / ת.ז" value={doc.clientId} onChange={(v) => onDocChange({ clientId: v })} placeholder="מספר מזהה" dir="ltr" />
           <TextField tokens={tokens} label="כתובת" value={doc.clientAddr} onChange={(v) => onDocChange({ clientAddr: v })} placeholder="רחוב, עיר" last />
@@ -151,6 +181,21 @@ export function BlockEditor({
     case "items":
       return (
         <div>
+          <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: services.length ? 8 : 0 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: tokens.label3 }}>קטלוג שירותים</label>
+              <button type="button" onClick={onSaveServices} style={{ border: "none", background: `${tokens.green}1f`, color: tokens.green, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>+ שמור לקטלוג</button>
+            </div>
+            {services.length ? (
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {services.map((s) => (
+                  <button key={s.id} type="button" onClick={() => onAddService(s)} style={{ border: `1px solid ${tokens.sep}`, background: tokens.fill3, color: tokens.label1, borderRadius: 999, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
+                    {s.desc} · {formatMoney(s.price, doc.currency)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           {doc.items.map((it, i) => (
             <ItemRow
               key={it.id}
@@ -204,10 +249,16 @@ export function BlockEditor({
               </div>
             ) : null}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: rowPad }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
             <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>מע״מ</span>
             <IOSInput tokens={tokens} value={doc.vatRate} onChange={(v) => onDocChange({ vatRate: v })} suf="%" />
           </div>
+          <button type="button" onClick={() => updateBlock({ amountInWords: !block.amountInWords })} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: rowPad, border: "none", background: "transparent", color: tokens.label1, fontFamily: "inherit", cursor: "pointer" }}>
+            <span style={{ fontSize: 15, fontWeight: 500 }}>הצג סכום במילים</span>
+            <span style={{ width: 46, height: 28, borderRadius: 999, background: block.amountInWords ? tokens.green : tokens.fill2, position: "relative", transition: "background .15s" }}>
+              <span style={{ position: "absolute", top: 3, insetInlineStart: block.amountInWords ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "inset-inline-start .15s" }} />
+            </span>
+          </button>
         </div>
       );
     case "signature": {

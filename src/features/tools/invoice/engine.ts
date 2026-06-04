@@ -57,6 +57,7 @@ export type Block = {
   signedAt?: string; // ISO timestamp
   intent?: string; // consent statement
   signedHash?: string; // SHA-256 of the document content at signing time
+  amountInWords?: boolean; // totals block: show the total in Hebrew words
 };
 
 export type BlockMeta = {
@@ -145,6 +146,13 @@ export type Asset = {
 };
 
 export const ASSETS_KEY = "tool_invoice_assets";
+
+/* ───────────────────── client book + service catalog ─────────────────── */
+
+export type SavedClient = { id: string; name: string; clientId?: string; addr?: string };
+export type SavedService = { id: string; desc: string; price: number };
+export const CLIENTS_KEY = "tool_invoice_clients";
+export const SERVICES_KEY = "tool_invoice_services";
 
 /* ──────────────────────────────── templates ──────────────────────────── */
 

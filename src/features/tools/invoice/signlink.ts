@@ -7,13 +7,112 @@
  * to send back. Nothing is uploaded — the payload lives only in the link.
  */
 
-import type { AssetKind, InvoiceDoc } from "./engine";
+import { defaultDoc, newItemId, type AssetKind, type Block, type DocType, type InvoiceDoc } from "./engine";
 
 export type SignPayload = {
   v: 1;
   doc: InvoiceDoc;
   assets: Array<{ id: string; kind: AssetKind; url: string }>; // url = downscaled dataURL
 };
+
+/* ── compact codec: shrink the document before compression ──
+   Drops ids, omits default values, and uses short keys. Reconstructed on the
+   other side by merging defaults. Text content still travels (it must), so a
+   very long contract still yields a longer link — but typical docs get tiny. */
+
+function compactBlock(b: Block): Record<string, unknown> {
+  const o: Record<string, unknown> = { t: b.type, s: b.span };
+  if (b.hidden) o.h = 1;
+  if (b.title) o.ti = b.title;
+  if (b.body) o.bo = b.body;
+  if (b.align && b.align !== "right") o.al = b.align;
+  if (b.signatureAssetId) o.sa = b.signatureAssetId;
+  if (b.signerName) o.sn = b.signerName;
+  if (b.sigMode && b.sigMode !== "business") o.sm = b.sigMode;
+  if (b.intent) o.in = b.intent;
+  if (b.height && b.height !== 24) o.he = b.height;
+  return o;
+}
+
+function expandBlock(o: Record<string, unknown>): Block {
+  return {
+    id: newItemId(),
+    type: o.t as Block["type"],
+    span: (o.s as Block["span"]) ?? 2,
+    ...(o.h ? { hidden: true } : {}),
+    ...(o.ti ? { title: String(o.ti) } : {}),
+    ...(o.bo ? { body: String(o.bo) } : {}),
+    ...(o.al ? { align: o.al as Block["align"] } : {}),
+    ...(o.sa ? { signatureAssetId: String(o.sa) } : {}),
+    ...(o.sn ? { signerName: String(o.sn) } : {}),
+    ...(o.sm ? { sigMode: o.sm as Block["sigMode"] } : {}),
+    ...(o.in ? { intent: String(o.in) } : {}),
+    ...(o.he ? { height: Number(o.he) } : {}),
+  };
+}
+
+function compactDoc(doc: InvoiceDoc): Record<string, unknown> {
+  const o: Record<string, unknown> = { dt: doc.issueDate };
+  if (doc.docType !== "quote") o.ty = doc.docType;
+  if (doc.docNumber) o.n = doc.docNumber;
+  if (doc.bizName) o.b = doc.bizName;
+  if (doc.bizId) o.bi = doc.bizId;
+  if (doc.bizAddr) o.ba = doc.bizAddr;
+  if (doc.bizPhone) o.bp = doc.bizPhone;
+  if (doc.bizEmail) o.be = doc.bizEmail;
+  if (doc.clientName) o.c = doc.clientName;
+  if (doc.clientId) o.ci = doc.clientId;
+  if (doc.clientAddr) o.ca = doc.clientAddr;
+  if (doc.currency !== "ILS") o.cu = doc.currency;
+  if (doc.vatRate !== 18) o.vr = doc.vatRate;
+  if (doc.pricesIncludeVat) o.iv = 1;
+  if (doc.discountMode !== "none") {
+    o.dm = doc.discountMode;
+    o.dv = doc.discountValue;
+  }
+  if (doc.accentColor && doc.accentColor !== "#8a6327") o.ac = doc.accentColor;
+  if (doc.validDays !== 14) o.vd = doc.validDays;
+  if (doc.dueDays !== 30) o.du = doc.dueDays;
+  if (doc.payInfo) o.pi = doc.payInfo;
+  if (doc.notes) o.no = doc.notes;
+  o.it = doc.items.map((i) => [i.desc, i.qty, i.price]);
+  o.bl = doc.blocks.map(compactBlock);
+  return o;
+}
+
+function expandDoc(o: Record<string, unknown>): InvoiceDoc {
+  const items = Array.isArray(o.it)
+    ? (o.it as Array<[string, number, number]>).map(([desc, qty, price]) => ({ id: newItemId(), desc: String(desc ?? ""), qty: Number(qty) || 0, price: Number(price) || 0 }))
+    : defaultDoc.items;
+  const blocks = Array.isArray(o.bl) ? (o.bl as Array<Record<string, unknown>>).map(expandBlock) : defaultDoc.blocks;
+  return {
+    ...defaultDoc,
+    docType: (o.ty as DocType) ?? "quote",
+    docNumber: o.n ? String(o.n) : "",
+    issueDate: o.dt ? String(o.dt) : defaultDoc.issueDate,
+    bizName: o.b ? String(o.b) : "",
+    bizId: o.bi ? String(o.bi) : "",
+    bizAddr: o.ba ? String(o.ba) : "",
+    bizPhone: o.bp ? String(o.bp) : "",
+    bizEmail: o.be ? String(o.be) : "",
+    logoAssetId: null,
+    clientName: o.c ? String(o.c) : "",
+    clientId: o.ci ? String(o.ci) : "",
+    clientAddr: o.ca ? String(o.ca) : "",
+    currency: (o.cu as InvoiceDoc["currency"]) ?? "ILS",
+    vatRate: o.vr != null ? Number(o.vr) : 18,
+    pricesIncludeVat: !!o.iv,
+    discountMode: (o.dm as InvoiceDoc["discountMode"]) ?? "none",
+    discountValue: o.dv != null ? Number(o.dv) : 0,
+    accentColor: o.ac ? String(o.ac) : "#8a6327",
+    validDays: o.vd != null ? Number(o.vd) : 14,
+    dueDays: o.du != null ? Number(o.du) : 30,
+    payInfo: o.pi ? String(o.pi) : "",
+    notes: o.no ? String(o.no) : "",
+    items,
+    blocks,
+  };
+}
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let bin = "";
@@ -50,7 +149,8 @@ async function gunzip(bytes: Uint8Array): Promise<string> {
 const hasCompression = typeof CompressionStream !== "undefined";
 
 export async function encodeSignPayload(payload: SignPayload): Promise<string> {
-  const json = JSON.stringify(payload);
+  const compact = { v: 1, d: compactDoc(payload.doc), a: payload.assets };
+  const json = JSON.stringify(compact);
   if (hasCompression) return "1" + bytesToBase64Url(await gzip(json));
   return "0" + bytesToBase64Url(new TextEncoder().encode(json));
 }
@@ -60,7 +160,8 @@ export async function decodeSignPayload(encoded: string): Promise<SignPayload> {
   const body = encoded.slice(1);
   const bytes = base64UrlToBytes(body);
   const json = flag === "1" ? await gunzip(bytes) : new TextDecoder().decode(bytes);
-  return JSON.parse(json) as SignPayload;
+  const parsed = JSON.parse(json) as { v: number; d: Record<string, unknown>; a?: SignPayload["assets"] };
+  return { v: 1, doc: expandDoc(parsed.d), assets: parsed.a ?? [] };
 }
 
 export function buildSignUrl(encoded: string): string {
