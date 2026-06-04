@@ -3,6 +3,7 @@ import {
   formatMoney,
   lineTotal,
   readableOn,
+  DOC_TYPE_LABEL,
   type Block,
   type InvoiceDoc,
 } from "./engine";
@@ -12,8 +13,6 @@ import { formatSignedAt, shortHash } from "./sign";
 const PAPER_INK = "#1a1a22";
 const PAPER_MUTED = "#6b7280";
 const PAPER_LINE = "#e5e7eb";
-
-const DOC_TITLES: Record<InvoiceDoc["docType"], string> = { quote: "הצעת מחיר", invoice: "חשבונית עסקה" };
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
@@ -68,7 +67,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
     case "meta":
       return (
         <div style={{ textAlign: centered ? "center" : "left" }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: accent, letterSpacing: "-0.01em" }}>{DOC_TITLES[doc.docType]}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: accent, letterSpacing: "-0.01em" }}>{DOC_TYPE_LABEL[doc.docType]}</div>
           <div style={{ fontSize: 12, color: PAPER_MUTED, marginTop: 6 }}>
             מספר: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{doc.docNumber || "—"}</span>
           </div>
@@ -79,11 +78,11 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
             <div style={{ fontSize: 12, color: PAPER_MUTED }}>
               בתוקף עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(addDays(doc.issueDate, doc.validDays))}</span>
             </div>
-          ) : (
+          ) : doc.docType === "invoice" ? (
             <div style={{ fontSize: 12, color: PAPER_MUTED }}>
               לתשלום עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(addDays(doc.issueDate, doc.dueDays))}</span>
             </div>
-          )}
+          ) : null}
         </div>
       );
     case "client":

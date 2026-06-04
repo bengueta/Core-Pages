@@ -6,12 +6,12 @@ import { CheckCircle2, PenLine, Share2, ShieldCheck } from "lucide-react";
 import { ActionButton, getTokens } from "../shared";
 import { InvoiceDocument } from "./InvoiceDocument";
 import { ClientSignModal } from "./ClientSignModal";
-import { calcTotals, formatMoney, newItemId, type Block, type InvoiceDoc } from "./engine";
+import { DOC_TYPE_LABEL, calcTotals, formatMoney, newItemId, type Block, type InvoiceDoc } from "./engine";
 import type { LiveAsset } from "./storage";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
 
-const DOC_TITLES: Record<InvoiceDoc["docType"], string> = { quote: "הצעת מחיר", invoice: "חשבונית עסקה" };
+const DOC_TITLES = DOC_TYPE_LABEL;
 
 /** Make sure there's a client signature block to sign into. */
 function ensureClientSig(doc: InvoiceDoc): InvoiceDoc {

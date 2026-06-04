@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Plus, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, LayoutTemplate, MoreHorizontal, Palette, Plus, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
+import { ActionButton, Section, getTokens, glass } from "../shared";
 import { AssetManager } from "./AssetManager";
 import { BlockBuilder } from "./BlockBuilder";
 import { BlockEditor } from "./BlockEditor";
 import { InvoiceDocument } from "./InvoiceDocument";
 import { ClientSignModal } from "./ClientSignModal";
 import { SigningView } from "./SigningView";
+import { HomeView } from "./HomeView";
+import { buildStarter, type Starter } from "./starters";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
 import { buildSignUrl, decodeSignPayload, encodeSignPayload, readSignFragment } from "./signlink";
@@ -19,6 +21,7 @@ import { PRESETS_KEY, applyPreset, capturePreset, type BlockPreset, type PresetS
 import {
   ADDABLE_BLOCKS,
   BLOCK_META,
+  DOC_TYPE_LABEL,
   TEMPLATES,
   applyTemplate,
   calcTotals,
@@ -53,7 +56,7 @@ const STORAGE_KEY = "tool_invoice_doc";
 const LIBRARY_KEY = "tool_invoice_library";
 const MAX_SAVES = 30;
 
-const DOC_TITLES: Record<DocType, string> = { quote: "הצעת מחיר", invoice: "חשבונית עסקה" };
+const DOC_TITLES = DOC_TYPE_LABEL;
 const ACCENT_PRESETS = ["#8a6327", "#1a1a22", "#0a84ff", "#2f8f4e", "#7c3aed", "#be123c"];
 
 type SavedDoc = { id: string; name: string; savedAt: string; doc: InvoiceDoc };
@@ -115,6 +118,7 @@ export function InvoiceShell() {
   const [presetDialog, setPresetDialog] = useState<{ open: boolean; name: string; type: BlockType | null; data: Record<string, unknown> | null }>({ open: false, name: "", type: null, data: null });
   const [confirmState, setConfirmState] = useState<{ open: boolean; message: string; onYes: (() => void) | null }>({ open: false, message: "", onYes: null });
   const askConfirm = (message: string, onYes: () => void) => setConfirmState({ open: true, message, onYes });
+  const [view, setView] = useState<"home" | "builder">("home");
 
   const toast = (m: string) => {
     setToastMsg(m);
@@ -410,6 +414,17 @@ export function InvoiceShell() {
     setSelectedId(null);
     toast("נטען ✓");
   };
+  const pickStarter = (s: Starter) => {
+    setDoc(buildStarter(s));
+    setSelectedId(null);
+    setSheetState("half");
+    setView("builder");
+  };
+  const openSavedFromHome = (entry: SavedDoc) => {
+    setDoc({ ...defaultDoc, ...entry.doc });
+    setSelectedId(null);
+    setView("builder");
+  };
   const duplicateSaved = (entry: SavedDoc) =>
     setLibrary((prev) => [{ ...entry, id: newItemId(), name: `${entry.name} (עותק)`, savedAt: new Date().toISOString() }, ...prev].slice(0, MAX_SAVES));
   const deleteSaved = (id: string) => askConfirm("למחוק את המסמך השמור?", () => setLibrary((prev) => prev.filter((e) => e.id !== id)));
@@ -467,6 +482,21 @@ export function InvoiceShell() {
   if (!mounted || !signingChecked) return <div style={{ minHeight: "100vh", background: "#09090b" }} aria-hidden />;
 
   if (signingSession) return <SigningView isDark={isDark} doc={signingSession.doc} assets={signingSession.assets} />;
+
+  if (view === "home")
+    return (
+      <HomeView
+        isDark={isDark}
+        library={library}
+        presets={blockPresets}
+        assets={assets}
+        onPickStarter={pickStarter}
+        onContinue={() => setView("builder")}
+        onOpenSaved={openSavedFromHome}
+        onDeleteSaved={deleteSaved}
+        onDuplicateSaved={duplicateSaved}
+      />
+    );
 
   const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
 
@@ -547,15 +577,7 @@ export function InvoiceShell() {
         ) : (
           <>
             <div style={{ margin: "12px 0 14px" }}>
-              <SegmentedControl<DocType>
-                tokens={tokens}
-                value={doc.docType}
-                onChange={(v) => onDocChange({ docType: v })}
-                options={[
-                  { value: "quote", label: "הצעת מחיר" },
-                  { value: "invoice", label: "חשבונית עסקה" },
-                ]}
-              />
+              <ActionButton tokens={tokens} color={tokens.label2} onPress={() => setView("home")} icon={<LayoutTemplate size={16} />} small full>תבניות ושמירות</ActionButton>
             </div>
             {builderEl}
           </>
@@ -740,15 +762,7 @@ export function InvoiceShell() {
           {/* ── Builder / editor ── */}
           <div className="inv-no-print" style={{ minWidth: 0 }}>
             <div style={{ marginBottom: 18 }}>
-              <SegmentedControl<DocType>
-                tokens={tokens}
-                value={doc.docType}
-                onChange={(v) => onDocChange({ docType: v })}
-                options={[
-                  { value: "quote", label: "הצעת מחיר" },
-                  { value: "invoice", label: "חשבונית עסקה" },
-                ]}
-              />
+              <ActionButton tokens={tokens} color={tokens.label2} onPress={() => setView("home")} icon={<LayoutTemplate size={16} />} full>תבניות ושמירות</ActionButton>
             </div>
 
             <Section tokens={tokens} title="תבנית ועיצוב">
