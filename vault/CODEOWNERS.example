@@ -1,0 +1,5 @@
+# Copy snippets into repo-root CODEOWNERS (GitHub only reads /.github/CODEOWNERS at root).
+vault-pages/package.json @your-team
+vault-pages/pnpm-lock.yaml @your-team
+vault-pages/scripts/validate-content.mjs @your-team
+vault-pages/.github/workflows/* @your-team

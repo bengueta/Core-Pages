@@ -1,0 +1,55 @@
+---
+type Props = {
+  slug: string;
+};
+
+const { slug } = Astro.props;
+
+const repo = import.meta.env.PUBLIC_GISCUS_REPO;
+const repoId = import.meta.env.PUBLIC_GISCUS_REPO_ID;
+const category = import.meta.env.PUBLIC_GISCUS_CATEGORY ?? "Announcements";
+const categoryId = import.meta.env.PUBLIC_GISCUS_CATEGORY_ID;
+
+const enabled = !!(repo && repoId && categoryId);
+const anchorId = `giscus-mount-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
+---
+
+{
+  enabled ? (
+    <>
+      <p class="giscus-muted">
+        דיון לכל מאמר:&nbsp;<span dir="ltr">{slug}</span>
+      </p>
+      <div id={anchorId} class="giscus" />
+      <script
+        is:inline
+        define:vars={{ anchorId, repo, repoId, category, categoryId, slug }}
+      >
+        function mount() {
+          const anchor = document.getElementById(anchorId);
+          if (!anchor) return;
+          const s = document.createElement("script");
+          s.src = "https://giscus.app/client.js";
+          s.async = true;
+          s.crossOrigin = "anonymous";
+          s.setAttribute("data-repo", repo);
+          s.setAttribute("data-repo-id", repoId);
+          s.setAttribute("data-category", category);
+          s.setAttribute("data-category-id", categoryId);
+          s.setAttribute("data-mapping", "specific");
+          s.setAttribute("data-term", `vault/${slug}`);
+          s.setAttribute("data-reactions-enabled", "1");
+          s.setAttribute("data-emit-metadata", "0");
+          s.setAttribute("data-theme", "preferred_color_scheme");
+          anchor.insertAdjacentElement("afterend", s);
+        }
+        mount();
+      </script>
+    </>
+  ) : (
+    <p class="giscus-muted">
+      להצגת Giscus הגדר את משתני <code>PUBLIC_GISCUS_*</code> בזמן build כפי שמוסבר ב־
+      <code>DISCUSSIONS_AND_GISCUS.md</code>.
+    </p>
+  )
+}
