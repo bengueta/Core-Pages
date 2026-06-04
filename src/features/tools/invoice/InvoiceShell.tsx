@@ -14,7 +14,7 @@ import { ClientSignModal } from "./ClientSignModal";
 import { SigningView } from "./SigningView";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
-import { blobUrlToDataUrl, buildSignUrl, decodeSignPayload, downscaleDataUrl, encodeSignPayload, readSignFragment } from "./signlink";
+import { buildSignUrl, decodeSignPayload, encodeSignPayload, readSignFragment } from "./signlink";
 import { PRESETS_KEY, applyPreset, capturePreset, type BlockPreset, type PresetStore } from "./presets";
 import {
   ADDABLE_BLOCKS,
@@ -112,6 +112,8 @@ export function InvoiceShell() {
   const [addOpen, setAddOpen] = useState(false);
   const [blockPresets, setBlockPresets] = useState<PresetStore>({});
   const [presetDialog, setPresetDialog] = useState<{ open: boolean; name: string; type: BlockType | null; data: Record<string, unknown> | null }>({ open: false, name: "", type: null, data: null });
+  const [confirmState, setConfirmState] = useState<{ open: boolean; message: string; onYes: (() => void) | null }>({ open: false, message: "", onYes: null });
+  const askConfirm = (message: string, onYes: () => void) => setConfirmState({ open: true, message, onYes });
 
   const toast = (m: string) => {
     setToastMsg(m);
@@ -238,10 +240,11 @@ export function InvoiceShell() {
   const reorderBlocks = (next: Block[]) => setDoc((prev) => ({ ...prev, blocks: next }));
   const toggleSpan = (id: string) => setDoc((prev) => ({ ...prev, blocks: prev.blocks.map((b) => (b.id === id ? { ...b, span: b.span === 2 ? 1 : 2 } : b)) }));
   const toggleHidden = (id: string) => setDoc((prev) => ({ ...prev, blocks: prev.blocks.map((b) => (b.id === id ? { ...b, hidden: !b.hidden } : b)) }));
-  const deleteBlock = (id: string) => {
-    setDoc((prev) => ({ ...prev, blocks: prev.blocks.filter((b) => b.id !== id) }));
-    setSelectedId((cur) => (cur === id ? null : cur));
-  };
+  const deleteBlock = (id: string) =>
+    askConfirm("למחוק את הבלוק מההצעה?", () => {
+      setDoc((prev) => ({ ...prev, blocks: prev.blocks.filter((b) => b.id !== id) }));
+      setSelectedId((cur) => (cur === id ? null : cur));
+    });
   const addBlock = (type: BlockType) => {
     const nb: Block = {
       id: newItemId(),
@@ -299,10 +302,8 @@ export function InvoiceShell() {
     if (docPatch) onDocChange(docPatch);
     toast("פריסט נטען ✓");
   };
-  const deletePreset = (type: BlockType, id: string) => {
-    if (typeof window !== "undefined" && !window.confirm("למחוק את הפריסט?")) return;
-    setBlockPresets((prev) => ({ ...prev, [type]: (prev[type] ?? []).filter((p) => p.id !== id) }));
-  };
+  const deletePreset = (type: BlockType, id: string) =>
+    askConfirm("למחוק את הפריסט?", () => setBlockPresets((prev) => ({ ...prev, [type]: (prev[type] ?? []).filter((p) => p.id !== id) })));
 
   /* items */
   const addItem = () => setDoc((prev) => ({ ...prev, items: [...prev.items, { id: newItemId(), desc: "", qty: 1, price: 0 }] }));
@@ -324,17 +325,18 @@ export function InvoiceShell() {
     const blob = await dataUrlToBlob(dataURL);
     await storeAsset("signature", `חתימה ${assets.filter((a) => a.kind === "signature").length + 1}`, blob);
   };
-  const deleteAsset = async (id: string) => {
-    const target = assetsRef.current.find((a) => a.id === id);
-    if (target) URL.revokeObjectURL(target.url);
-    await idbDeleteAsset(id);
-    setAssets((prev) => prev.filter((a) => a.id !== id));
-    setDoc((prev) => ({
-      ...prev,
-      logoAssetId: prev.logoAssetId === id ? null : prev.logoAssetId,
-      blocks: prev.blocks.map((b) => (b.signatureAssetId === id ? { ...b, signatureAssetId: null } : b)),
-    }));
-  };
+  const deleteAsset = (id: string) =>
+    askConfirm("למחוק את הנכס מהספרייה?", async () => {
+      const target = assetsRef.current.find((a) => a.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      await idbDeleteAsset(id);
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+      setDoc((prev) => ({
+        ...prev,
+        logoAssetId: prev.logoAssetId === id ? null : prev.logoAssetId,
+        blocks: prev.blocks.map((b) => (b.signatureAssetId === id ? { ...b, signatureAssetId: null } : b)),
+      }));
+    });
 
   /* backup / restore (full local snapshot — never leaves the device) */
   const exportBackup = async () => {
@@ -409,28 +411,16 @@ export function InvoiceShell() {
   };
   const duplicateSaved = (entry: SavedDoc) =>
     setLibrary((prev) => [{ ...entry, id: newItemId(), name: `${entry.name} (עותק)`, savedAt: new Date().toISOString() }, ...prev].slice(0, MAX_SAVES));
-  const deleteSaved = (id: string) => setLibrary((prev) => prev.filter((e) => e.id !== id));
+  const deleteSaved = (id: string) => askConfirm("למחוק את המסמך השמור?", () => setLibrary((prev) => prev.filter((e) => e.id !== id)));
 
   const doPrint = () => window.print();
   const sendForSignature = async () => {
     if (sending) return;
     setSending(true);
     try {
-      const ids = new Set<string>();
-      if (doc.logoAssetId) ids.add(doc.logoAssetId);
-      doc.blocks.forEach((b) => { if (b.signatureAssetId) ids.add(b.signatureAssetId); });
-      const payloadAssets: Array<{ id: string; kind: AssetKind; url: string }> = [];
-      for (const id of ids) {
-        const a = assets.find((x) => x.id === id);
-        if (!a) continue;
-        try {
-          const dataUrl = await blobUrlToDataUrl(a.url);
-          payloadAssets.push({ id, kind: a.kind, url: await downscaleDataUrl(dataUrl) });
-        } catch {
-          /* skip an asset that can't be inlined */
-        }
-      }
-      const encoded = await encodeSignPayload({ v: 1, doc, assets: payloadAssets });
+      // Keep the link tiny so it pastes everywhere (WhatsApp etc.): text only,
+      // no inlined images — an embedded logo would blow the URL up to ~50KB+.
+      const encoded = await encodeSignPayload({ v: 1, doc, assets: [] });
       const url = buildSignUrl(encoded);
       const text = `${DOC_TITLES[doc.docType]} ${doc.docNumber || ""} לחתימה`.trim();
       const nav = navigator as Navigator;
@@ -712,6 +702,7 @@ export function InvoiceShell() {
           .inv-grid{display:block !important}
           .inv-paper-scroll{position:static !important;overflow:visible !important}
           #invoice-doc{box-shadow:none !important;border-radius:0 !important;margin:0 !important;width:100% !important}
+          #invoice-doc *{outline:none !important}
         }
       `}</style>
 
@@ -838,7 +829,7 @@ export function InvoiceShell() {
           {/* ── Live paper preview ── */}
           <div className="inv-paper-scroll">
             <div id="invoice-doc">
-              <InvoiceDocument doc={doc} assets={assets} />
+              <InvoiceDocument doc={doc} assets={assets} onBlockTap={(id) => setSelectedId(id)} selectedBlockId={selectedId} />
             </div>
             <p className="inv-no-print" style={{ fontSize: 12, color: tokens.label3, textAlign: "center", marginTop: 12 }}>
               בחלון ההדפסה בחרו “שמירה כ-PDF” · סה״כ לתשלום {formatMoney(totals.total, doc.currency)}
@@ -848,7 +839,7 @@ export function InvoiceShell() {
         ) : (
           <div style={{ paddingBottom: "56vh" }}>
             <div id="invoice-doc">
-              <InvoiceDocument doc={doc} assets={assets} />
+              <InvoiceDocument doc={doc} assets={assets} onBlockTap={(id) => setSelectedId(id)} selectedBlockId={selectedId} />
             </div>
             <p className="inv-no-print" style={{ fontSize: 12, color: tokens.label3, textAlign: "center", margin: "12px 0 0" }}>
               סה״כ לתשלום {formatMoney(totals.total, doc.currency)}
@@ -887,6 +878,18 @@ export function InvoiceShell() {
             <div style={{ display: "flex", gap: 10 }}>
               <ActionButton tokens={tokens} color={tokens.green} onPress={confirmSave} icon={<Save size={16} />} small full>שמור</ActionButton>
               <ActionButton tokens={tokens} color={tokens.label3} onPress={() => setSaveDialog({ open: false, name: "" })} small full>ביטול</ActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmState.open ? (
+        <div className="inv-no-print" onMouseDown={() => setConfirmState({ open: false, message: "", onYes: null })} style={{ position: "fixed", inset: 0, zIndex: 10003, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div dir="rtl" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(380px,100%)", background: "rgba(20,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: tokens.r28, padding: 22, color: tokens.label1, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+            <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, textAlign: "center" }}>{confirmState.message}</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <ActionButton tokens={tokens} color={tokens.red} onPress={() => { confirmState.onYes?.(); setConfirmState({ open: false, message: "", onYes: null }); }} icon={<Trash2 size={16} />} full>אישור מחיקה</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.label2} onPress={() => setConfirmState({ open: false, message: "", onYes: null })} full>ביטול</ActionButton>
             </div>
           </div>
         </div>

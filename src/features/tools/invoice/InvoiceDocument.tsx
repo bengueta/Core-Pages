@@ -206,7 +206,17 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
   }
 }
 
-export function InvoiceDocument({ doc, assets }: { doc: InvoiceDoc; assets: LiveAsset[] }) {
+export function InvoiceDocument({
+  doc,
+  assets,
+  onBlockTap,
+  selectedBlockId,
+}: {
+  doc: InvoiceDoc;
+  assets: LiveAsset[];
+  onBlockTap?: (id: string) => void;
+  selectedBlockId?: string | null;
+}) {
   const accent = doc.accentColor || "#8a6327";
   const visible = doc.blocks.filter((b) => !b.hidden);
 
@@ -216,8 +226,22 @@ export function InvoiceDocument({ doc, assets }: { doc: InvoiceDoc; assets: Live
         {visible.map((b) => {
           const content = renderBlock(b, doc, assets, accent);
           if (content == null) return null;
+          const selected = !!onBlockTap && selectedBlockId === b.id;
           return (
-            <div key={b.id} style={{ gridColumn: b.span === 2 ? "1 / -1" : "span 1", minWidth: 0 }}>
+            <div
+              key={b.id}
+              onClick={onBlockTap ? () => onBlockTap(b.id) : undefined}
+              className={onBlockTap ? "inv-doc-block" : undefined}
+              style={{
+                gridColumn: b.span === 2 ? "1 / -1" : "span 1",
+                minWidth: 0,
+                cursor: onBlockTap ? "pointer" : "default",
+                outline: selected ? `2px solid ${accent}` : "2px solid transparent",
+                outlineOffset: 4,
+                borderRadius: 4,
+                transition: "outline-color .15s",
+              }}
+            >
               {content}
             </div>
           );

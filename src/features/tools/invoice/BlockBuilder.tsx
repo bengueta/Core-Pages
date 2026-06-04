@@ -5,7 +5,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -158,10 +159,10 @@ function SortableCard(props: {
       {...attributes}
       {...listeners}
       aria-label="גרור לסידור"
-      style={{ display: "flex", alignItems: "center", cursor: "grab", color: props.tokens.label3, marginInlineStart: -2, touchAction: "none" }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab", color: props.tokens.label2, width: 30, height: 34, marginInlineStart: -6, marginBlock: -6, borderRadius: 8, background: props.tokens.fill3, touchAction: "none", flexShrink: 0 }}
       onClick={(e) => e.stopPropagation()}
     >
-      <GripVertical size={16} />
+      <GripVertical size={18} />
     </span>
   );
   return (
@@ -195,13 +196,18 @@ export function BlockBuilder({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  // Long-press / hold to start dragging; a quick tap stays a click (=edit).
+  // Desktop: drag after a small move (a click stays a click → edit).
+  // Mobile: long-press to drag (a tap edits; an early move scrolls).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
+  const onDragStart = (e: DragStartEvent) => {
+    setActiveId(String(e.active.id));
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
+  };
   const onDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = e;
