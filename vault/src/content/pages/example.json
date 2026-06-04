@@ -1,0 +1,20 @@
+{
+  "title": "דף בלוקים לדוגמה",
+  "summary": "הוכחה שמערכת הבלוקים רצה סטטית על GitHub Pages — בלי שרת ובלי דאטהבייס",
+  "slug": "example",
+  "updated": "2026-06-04",
+  "draft": false,
+  "palettes": {
+    "p1": { "heading": "white", "body": "neutral", "accent": "default", "buttonBg": "default", "buttonText": "white" }
+  },
+  "blocks": [
+    { "type": "hero", "props": { "title": "הבילדר חי על GitHub Pages", "subtitle": "בלוקים, פלטות ואנימציות — 100% סטטי, בלי backend", "paletteId": "p1", "animation": "fadeUp" } },
+    { "type": "heading", "props": { "level": "h2", "text": "זה עובד 🎉", "paletteId": "p1" } },
+    { "type": "text", "props": { "body": "כל הבלוקים מהבילדר מרונדרים כאן מתוך קובץ JSON בריפו.\nאין Convex, אין דאטהבייס, אין שרת — רק קבצים סטטיים ב-GitHub.", "paletteId": "p1" } },
+    { "type": "stats", "props": { "value1": "0", "label1": "שרתים", "value2": "100%", "label2": "סטטי", "value3": "23", "label3": "סוגי בלוקים", "value4": "1", "label4": "ריפו", "paletteId": "p1", "animation": "fadeUp" } },
+    { "type": "checklist", "props": { "body": "מבודד לחלוטין מהאתר\nאפס backend\nהכל בריפו אחד", "style": "check", "paletteId": "p1" } },
+    { "type": "alert", "props": { "variant": "success", "title": "בידוד מלא", "body": "העמוד הזה נבנה מ-JSON בזמן build ומוגש כ-HTML סטטי.", "paletteId": "p1" } },
+    { "type": "divider", "props": { "style": "gradient", "paletteId": "p1" } },
+    { "type": "cta", "props": { "title": "מוכן לפרסם?", "buttonText": "לפורום", "buttonHref": "../../forum/", "paletteId": "p1" } }
+  ]
+}
