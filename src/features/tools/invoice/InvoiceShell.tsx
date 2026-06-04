@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
@@ -10,6 +10,7 @@ import { AssetManager } from "./AssetManager";
 import { BlockBuilder } from "./BlockBuilder";
 import { BlockEditor } from "./BlockEditor";
 import { InvoiceDocument } from "./InvoiceDocument";
+import { shareDocument } from "./share";
 import {
   BLOCK_META,
   TEMPLATES,
@@ -93,6 +94,7 @@ export function InvoiceShell() {
   const [isMobile, setIsMobile] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -296,6 +298,20 @@ export function InvoiceShell() {
   const deleteSaved = (id: string) => setLibrary((prev) => prev.filter((e) => e.id !== id));
 
   const doPrint = () => window.print();
+  const doShare = async () => {
+    if (sharing) return;
+    const el = document.getElementById("invoice-doc");
+    if (!el) return;
+    setSharing(true);
+    try {
+      const base = doc.docType === "quote" ? "הצעת-מחיר" : "חשבונית";
+      await shareDocument(el, `${base}-${doc.docNumber || ""}.pdf`, `${DOC_TITLES[doc.docType]} ${doc.docNumber}`.trim());
+    } catch {
+      window.alert("שגיאה ביצירת הקובץ לשיתוף");
+    } finally {
+      setSharing(false);
+    }
+  };
   const resetAll = () => {
     if (typeof window !== "undefined" && !window.confirm("לאפס את הטופס הנוכחי? (הנכסים והמסמכים השמורים יישארו)")) return;
     setDoc(freshDoc(doc.docType));
@@ -338,7 +354,7 @@ export function InvoiceShell() {
     <button
       type="button"
       onClick={onClick}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: "none", background: "transparent", color, cursor: "pointer", fontFamily: "inherit", padding: "2px 4px", minWidth: 54, flexShrink: 0 }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: "none", background: "transparent", color, cursor: "pointer", fontFamily: "inherit", padding: "2px 2px", minWidth: 50, flexShrink: 0 }}
     >
       <span style={{ width: 38, height: 38, borderRadius: 12, background: `${color}1c`, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</span>
       <span style={{ fontSize: 10.5, fontWeight: 600 }}>{label}</span>
@@ -358,9 +374,10 @@ export function InvoiceShell() {
           <span style={{ fontSize: 15, fontWeight: 800, color: tokens.label1 }}>{BLOCK_META[selectedBlock.type].label}</span>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 8px 8px", borderBottom: `0.5px solid ${tokens.sep}`, overflowX: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, padding: "0 6px 8px", borderBottom: `0.5px solid ${tokens.sep}`, overflowX: "auto" }}>
+          {sheetAction(sharing ? "מכין…" : "שתף", <Share2 size={18} />, doShare, tokens.green)}
           {sheetAction("נכסים", <Images size={18} />, () => setAssetModal({ open: true, kind: "logo" }), tokens.blue)}
-          {sheetAction("שמירה", <Save size={18} />, saveCurrent, tokens.green)}
+          {sheetAction("שמירה", <Save size={18} />, saveCurrent, tokens.label2)}
           {sheetAction("חדש", <FilePlus2 size={18} />, newDocument, tokens.label2)}
           {sheetAction("הדפסה", <Printer size={18} />, doPrint, tokens.label2)}
           {sheetAction("עוד", <MoreHorizontal size={18} />, () => setMoreOpen(true), tokens.label2)}
@@ -610,7 +627,8 @@ export function InvoiceShell() {
             </Section>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <ActionButton tokens={tokens} color={tokens.green} onPress={doPrint} icon={<Printer size={17} />} full>הדפסה / שמירה כ-PDF</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.green} onPress={doShare} icon={<Share2 size={17} />} full>{sharing ? "מכין PDF…" : "שיתוף / PDF"}</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.blue} onPress={doPrint} icon={<Printer size={17} />} full>הדפסה</ActionButton>
               <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={16} />} small>איפוס</ActionButton>
             </div>
           </div>
