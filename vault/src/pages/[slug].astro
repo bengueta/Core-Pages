@@ -1,0 +1,37 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection, render } from "astro:content";
+import Giscus from "../components/Giscus.astro";
+
+export async function getStaticPaths() {
+  const items = await getCollection("vault", ({ data }) => data.draft !== true);
+  return items.map((entry) => ({
+    params: { slug: entry.data.slug },
+  }));
+}
+
+const slug = Astro.params.slug;
+const matches = await getCollection(
+  "vault",
+  (entry) => entry.data.draft !== true && entry.data.slug === slug
+);
+const entry = matches[0];
+if (!entry) {
+  return Astro.redirect(`${import.meta.env.BASE_URL}`, 307);
+}
+
+const { Content } = await render(entry);
+---
+
+<BaseLayout
+  title={entry.data.title}
+  description={entry.data.summary}
+  updated={entry.data.updated}
+>
+  <article class="vault-mdx-prose vault-article-head">
+    <h1>{entry.data.title}</h1>
+    <p class="summary">{entry.data.summary}</p>
+    <Content />
+  </article>
+  <Giscus slug={entry.data.slug} />
+</BaseLayout>

@@ -1,0 +1,96 @@
+# EXAMPLE ONLY — belongs in github.com/bengueta/Core-Pages/.github/workflows/
+#
+# Use this ONLY if you publish Vault as the sole artifact from a workflow.
+# If Core-Pages already deploys business/ + brand-colors/, merge vault/dist into
+# that pipeline instead — see INTEGRATE_CORE_PAGES.md in this folder.
+
+name: Vault MDX (example standalone)
+
+on:
+  pull_request:
+    paths:
+      - "vault/**"
+  push:
+    branches: [main]
+    paths:
+      - "vault/**"
+
+permissions:
+  contents: read
+
+jobs:
+  pr_check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vault
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: vault/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run validate
+      - name: Build
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          BASE_PATH: ${{ vars.VAULT_PAGES_BASE }}
+          PUBLIC_GITHUB_REPO_URL: ${{ vars.PUBLIC_GITHUB_REPO_URL }}
+        run: pnpm run build
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: vault
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: vault/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run validate
+      - uses: actions/configure-pages@v4
+      - name: Build
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          BASE_PATH: ${{ vars.VAULT_PAGES_BASE }}
+          PUBLIC_GITHUB_REPO_URL: ${{ vars.PUBLIC_GITHUB_REPO_URL }}
+          PUBLIC_GISCUS_REPO: ${{ vars.PUBLIC_GISCUS_REPO }}
+          PUBLIC_GISCUS_REPO_ID: ${{ secrets.PUBLIC_GISCUS_REPO_ID }}
+          PUBLIC_GISCUS_CATEGORY: ${{ vars.PUBLIC_GISCUS_CATEGORY }}
+          PUBLIC_GISCUS_CATEGORY_ID: ${{ secrets.PUBLIC_GISCUS_CATEGORY_ID }}
+        run: pnpm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: vault/dist
+
+  deploy:
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

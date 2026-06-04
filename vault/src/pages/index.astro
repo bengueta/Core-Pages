@@ -1,0 +1,62 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import { forumEnabled, newDiscussionUrl } from "../lib/forum";
+
+const items = (
+  await getCollection("vault", ({ data }) => data.draft !== true)
+).sort((a, b) => (a.data.updated < b.data.updated ? 1 : -1));
+
+const baseHref = import.meta.env.BASE_URL.endsWith("/")
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+---
+
+<BaseLayout
+  title="The Vault · public MDX"
+  description="בסיס ידע פתוח + פורום קהילתי — נבנה סטטית ומבודד לחלוטין מ-CoreStrategy."
+>
+  <section class="vault-forum-cta">
+    <div>
+      <h2 style="margin: 0 0 0.35rem">💬 הצטרפו לפורום</h2>
+      <p class="vault-card-summary" style="margin: 0">
+        התחברו עם חשבון GitHub כדי לשאול, להגיב ולפרסם — בלי הרשמה נפרדת.
+      </p>
+    </div>
+    <div class="vault-btn-row">
+      <a class="vault-btn vault-btn-primary" href={`${baseHref}forum/`}>לפורום</a>
+      {
+        forumEnabled ? (
+          <a
+            class="vault-btn"
+            href={newDiscussionUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            נושא חדש ↗
+          </a>
+        ) : null
+      }
+    </div>
+  </section>
+
+  <h1>ספריית Vault (פתוח)</h1>
+  <p class="vault-card-summary" style="margin-top: -0.5rem; margin-bottom: 2rem">
+    מאמרים ב־MDX שמפורסמים דרך GitHub Actions, ו<a href={`${baseHref}forum/`}>פורום
+    קהילתי</a> מבוסס GitHub Discussions.
+  </p>
+  <section aria-label="רשימת מאמרים" class="vault-card-grid">
+    {
+      items.map((entry) => (
+        <a class="vault-card" href={`${import.meta.env.BASE_URL}${entry.data.slug}/`}>
+          <div>
+            <h2 style="margin: 0 0 0.5rem; font-size: 1.15rem">{entry.data.title}</h2>
+            <p class="vault-card-summary" style="margin: 0">
+              {entry.data.summary}
+            </p>
+          </div>
+        </a>
+      ))
+    }
+  </section>
+</BaseLayout>

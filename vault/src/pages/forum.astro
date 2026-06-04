@@ -1,0 +1,90 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  forumEnabled,
+  repoHref,
+  discussionsUrl,
+  newDiscussionUrl,
+  forumCategories,
+  categoryUrl,
+} from "../lib/forum";
+---
+
+<BaseLayout
+  title="הפורום · Vault"
+  description="פורום קהילתי מבוסס GitHub Discussions — התחברו עם חשבון GitHub כדי לפרסם, לשאול ולהגיב."
+>
+  <section class="vault-forum-hero">
+    <h1>הפורום</h1>
+    <p class="vault-card-summary" style="font-size: 1rem">
+      הפורום בנוי על <strong>GitHub Discussions</strong>. מתחברים עם חשבון GitHub —
+      וזהו: אין הרשמה נפרדת, אין סיסמה חדשה, וכל ההתחברות, הפרסום והמודרציה מנוהלים
+      ומאובטחים דרך GitHub.
+    </p>
+
+    {
+      forumEnabled ? (
+        <div class="vault-btn-row">
+          <a
+            class="vault-btn vault-btn-primary"
+            href={newDiscussionUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            פתחו נושא חדש ↗
+          </a>
+          <a class="vault-btn" href={discussionsUrl} target="_blank" rel="noreferrer noopener">
+            עיינו בכל הדיונים ↗
+          </a>
+        </div>
+      ) : (
+        <p class="vault-notice">
+          הפורום יופעל אוטומטית לאחר הגדרת <code>PUBLIC_GITHUB_REPO_URL</code> בזמן
+          ה-build (ב-Actions של Core-Pages). פירוט ב-<code>DISCUSSIONS_AND_GISCUS.md</code>.
+        </p>
+      )
+    }
+  </section>
+
+  {
+    forumEnabled ? (
+      <>
+        <h2 class="vault-section-title">קטגוריות</h2>
+        <section aria-label="קטגוריות הפורום" class="vault-card-grid">
+          {forumCategories.map((cat) => (
+            <a
+              class="vault-card"
+              href={categoryUrl(cat.slug)}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <h3 class="vault-cat-title">
+                <span aria-hidden="true">{cat.emoji}</span>
+                {cat.label}
+              </h3>
+              <p class="vault-card-summary" style="margin: 0">
+                {cat.description}
+              </p>
+            </a>
+          ))}
+        </section>
+      </>
+    ) : null
+  }
+
+  <h2 class="vault-section-title">איך מפרסמים</h2>
+  <ol class="vault-steps">
+    <li><strong>מתחברים</strong> עם חשבון GitHub (כפתור Sign in בתוך הדיון).</li>
+    <li><strong>בוחרים קטגוריה</strong> ולוחצים "New discussion".</li>
+    <li><strong>כותבים ומפרסמים</strong> — הפוסט עולה מיד, ללא אישור מראש.</li>
+  </ol>
+
+  <p class="vault-card-summary">
+    רוצים להוסיף <strong>מאמר רשמי</strong> לספרייה (ולא רק פוסט בפורום)? זה נעשה דרך
+    Pull Request{repoHref ? (
+      <>
+        {" "}ב-<a href={repoHref} target="_blank" rel="noreferrer noopener">repo</a>
+      </>
+    ) : null} — ראו <code>CONTRIBUTING.md</code>.
+  </p>
+</BaseLayout>
