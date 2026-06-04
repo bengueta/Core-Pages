@@ -7,6 +7,7 @@ import {
   type InvoiceDoc,
 } from "./engine";
 import type { LiveAsset } from "./storage";
+import { formatSignedAt, shortHash } from "./sign";
 
 const PAPER_INK = "#1a1a22";
 const PAPER_MUTED = "#6b7280";
@@ -140,20 +141,34 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
       );
     }
     case "signature": {
+      const isClient = (block.sigMode ?? "business") === "client";
       const sig = assets.find((a) => a.id === block.signatureAssetId && a.kind === "signature");
       const align = block.align ?? "right";
-      const justify = align === "center" ? "center" : align === "left" ? "flex-end" : "flex-start";
+      const alignItems = align === "center" ? "center" : align === "left" ? "flex-end" : "flex-start";
+      const imgSrc = isClient ? block.clientSignature ?? null : sig?.url ?? null;
+      const signed = isClient && !!block.clientSignature;
       return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: justify === "center" ? "center" : justify === "flex-end" ? "flex-end" : "flex-start" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em", marginBottom: 6 }}>{block.title || "חתימה"}</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em", marginBottom: 6 }}>
+            {block.title || (isClient ? "חתימת הלקוח" : "חתימה")}
+          </div>
           <div style={{ width: 180, height: 64, borderBottom: `1.5px solid ${PAPER_INK}`, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 2 }}>
-            {sig ? (
+            {imgSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={sig.url} alt="" style={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain" }} />
+              <img src={imgSrc} alt="" style={{ maxWidth: "100%", maxHeight: 60, objectFit: "contain" }} />
+            ) : isClient ? (
+              <span style={{ fontSize: 11, color: PAPER_MUTED, alignSelf: "center" }}>ממתין לחתימה</span>
             ) : null}
           </div>
           {block.signerName ? <div style={{ fontSize: 12.5, fontWeight: 600, color: PAPER_INK, marginTop: 5 }}>{block.signerName}</div> : null}
-          <div style={{ fontSize: 11, color: PAPER_MUTED, marginTop: 2 }}>{formatDate(doc.issueDate)}</div>
+          <div style={{ fontSize: 11, color: PAPER_MUTED, marginTop: 2 }}>
+            {signed ? formatSignedAt(block.signedAt ?? "") : formatDate(doc.issueDate)}
+          </div>
+          {signed && block.signedHash ? (
+            <div style={{ fontSize: 8.5, color: PAPER_MUTED, marginTop: 3, fontFamily: "monospace", direction: "ltr" }}>
+              ✓ e-signed · SHA-256 {shortHash(block.signedHash)}
+            </div>
+          ) : null}
         </div>
       );
     }

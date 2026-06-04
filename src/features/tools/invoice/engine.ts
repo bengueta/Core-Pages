@@ -43,6 +43,12 @@ export type Block = {
   signatureAssetId?: string | null;
   signerName?: string;
   height?: number; // spacer, px
+  // signature block: business (from library) vs client (captured + e-sign audit)
+  sigMode?: "business" | "client";
+  clientSignature?: string | null; // dataURL captured on this device
+  signedAt?: string; // ISO timestamp
+  intent?: string; // consent statement
+  signedHash?: string; // SHA-256 of the document content at signing time
 };
 
 export type BlockMeta = {

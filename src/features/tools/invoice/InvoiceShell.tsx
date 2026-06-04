@@ -10,7 +10,9 @@ import { AssetManager } from "./AssetManager";
 import { BlockBuilder } from "./BlockBuilder";
 import { BlockEditor } from "./BlockEditor";
 import { InvoiceDocument } from "./InvoiceDocument";
+import { ClientSignModal } from "./ClientSignModal";
 import { shareDocument } from "./share";
+import { DEFAULT_INTENT, computeDocHash } from "./sign";
 import {
   BLOCK_META,
   TEMPLATES,
@@ -95,6 +97,7 @@ export function InvoiceShell() {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [signModal, setSignModal] = useState<{ open: boolean; blockId: string | null }>({ open: false, blockId: null });
 
   useEffect(() => setMounted(true), []);
 
@@ -193,6 +196,22 @@ export function InvoiceShell() {
     };
     setDoc((prev) => ({ ...prev, blocks: [...prev.blocks, nb] }));
     setSelectedId(nb.id);
+  };
+
+  /* client e-signature */
+  const openSign = (blockId: string) => setSignModal({ open: true, blockId });
+  const completeSign = async (dataURL: string, name: string) => {
+    const blockId = signModal.blockId;
+    if (!blockId) return;
+    const hash = await computeDocHash(doc);
+    updateBlock(blockId, {
+      sigMode: "client",
+      clientSignature: dataURL,
+      signerName: name,
+      signedAt: new Date().toISOString(),
+      signedHash: hash,
+    });
+    setSignModal({ open: false, blockId: null });
   };
 
   /* items */
@@ -347,6 +366,7 @@ export function InvoiceShell() {
       patchItem={patchItem}
       removeItem={removeItem}
       onManageAssets={(kind) => setAssetModal({ open: true, kind })}
+      onSignClient={openSign}
     />
   ) : null;
 
@@ -659,6 +679,20 @@ export function InvoiceShell() {
       {isMobile && moreOpen ? moreModal : null}
 
       <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
+
+      {signModal.open ? (() => {
+        const b = doc.blocks.find((x) => x.id === signModal.blockId);
+        return (
+          <ClientSignModal
+            tokens={tokens}
+            summary={`${DOC_TITLES[doc.docType]} ${doc.docNumber || ""} · ${doc.bizName} · ${formatMoney(totals.total, doc.currency)}`.trim()}
+            intent={b?.intent || DEFAULT_INTENT}
+            initialName={b?.signerName || doc.clientName || ""}
+            onComplete={completeSign}
+            onCancel={() => setSignModal({ open: false, blockId: null })}
+          />
+        );
+      })() : null}
 
       {assetModal.open ? (
         <AssetManager

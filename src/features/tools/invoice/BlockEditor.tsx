@@ -6,6 +6,7 @@ import { ActionButton, HebrewDatePicker, IOSInput, SegmentedControl } from "../s
 import type { Tokens } from "../shared";
 import { AssetPicker } from "./AssetManager";
 import { AreaField, ItemRow, TextField } from "./fields";
+import { DEFAULT_INTENT, formatSignedAt } from "./sign";
 import {
   CURRENCY_SYMBOL,
   type AssetKind,
@@ -35,6 +36,7 @@ export function BlockEditor({
   patchItem,
   removeItem,
   onManageAssets,
+  onSignClient,
 }: {
   tokens: Tokens;
   doc: InvoiceDoc;
@@ -46,6 +48,7 @@ export function BlockEditor({
   patchItem: (id: string, patch: Partial<LineItem>) => void;
   removeItem: (id: string) => void;
   onManageAssets: (kind: AssetKind) => void;
+  onSignClient: (blockId: string) => void;
 }) {
   const symbol = CURRENCY_SYMBOL[doc.currency];
   const rowPad = "12px 16px";
@@ -170,21 +173,65 @@ export function BlockEditor({
           </div>
         </div>
       );
-    case "signature":
+    case "signature": {
+      const mode = block.sigMode ?? "business";
       return (
         <div>
           <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>חתימה (מספריית הנכסים)</label>
-            <AssetPicker tokens={tokens} assets={assets} kind="signature" value={block.signatureAssetId} onChange={(id) => updateBlock({ signatureAssetId: id })} onManage={() => onManageAssets("signature")} />
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>סוג חתימה</label>
+            <SegmentedControl<string>
+              tokens={tokens}
+              value={mode}
+              onChange={(v) => updateBlock({ sigMode: v as "business" | "client" })}
+              options={[
+                { value: "business", label: "חתימת העסק" },
+                { value: "client", label: "חתימת לקוח" },
+              ]}
+            />
           </div>
+
+          {mode === "business" ? (
+            <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>חתימה (מספריית הנכסים)</label>
+              <AssetPicker tokens={tokens} assets={assets} kind="signature" value={block.signatureAssetId} onChange={(id) => updateBlock({ signatureAssetId: id })} onManage={() => onManageAssets("signature")} />
+            </div>
+          ) : (
+            <>
+              <AreaField tokens={tokens} label="הצהרת כוונה (מוצגת ללקוח)" value={block.intent ?? DEFAULT_INTENT} onChange={(v) => updateBlock({ intent: v })} placeholder={DEFAULT_INTENT} />
+              <div style={{ padding: rowPad, borderTop: `0.5px solid ${tokens.sep}`, borderBottom: `0.5px solid ${tokens.sep}` }}>
+                {block.clientSignature ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={block.clientSignature} alt="" style={{ height: 40, maxWidth: 140, objectFit: "contain", background: "#fff", borderRadius: 8, padding: 4 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: tokens.green }}>נחתם ✓ {block.signerName ? `· ${block.signerName}` : ""}</div>
+                        <div style={{ fontSize: 11, color: tokens.label3 }}>{formatSignedAt(block.signedAt ?? "")}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <ActionButton tokens={tokens} color={tokens.blue} onPress={() => onSignClient(block.id)} small>החתם מחדש</ActionButton>
+                      <ActionButton tokens={tokens} color={tokens.red} onPress={() => updateBlock({ clientSignature: null, signedAt: undefined, signedHash: undefined })} small>נקה חתימה</ActionButton>
+                    </div>
+                  </div>
+                ) : (
+                  <ActionButton tokens={tokens} color={tokens.green} onPress={() => onSignClient(block.id)} icon={<Plus size={16} />} small full>החתמת לקוח עכשיו</ActionButton>
+                )}
+              </div>
+            </>
+          )}
+
           <TextField tokens={tokens} label="כותרת" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="חתימה" />
-          <TextField tokens={tokens} label="שם החותם" value={block.signerName ?? ""} onChange={(v) => updateBlock({ signerName: v })} placeholder="שם מלא" />
+          {mode === "business" ? (
+            <TextField tokens={tokens} label="שם החותם" value={block.signerName ?? ""} onChange={(v) => updateBlock({ signerName: v })} placeholder="שם מלא" />
+          ) : null}
           <div style={{ padding: rowPad }}>
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>יישור</label>
             <SegmentedControl<BlockAlign> tokens={tokens} value={block.align ?? "right"} onChange={(v) => updateBlock({ align: v })} options={ALIGN_OPTS} />
           </div>
         </div>
       );
+    }
     case "payment":
       return <AreaField tokens={tokens} label="חשבון בנק / אמצעי תשלום" value={doc.payInfo} onChange={(v) => onDocChange({ payInfo: v })} placeholder="בנק / סניף / חשבון, או קישור לתשלום…" />;
     case "notes":
