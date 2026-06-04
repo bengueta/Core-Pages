@@ -1,0 +1,27 @@
+/*
+ * Styling for block-builder pages. Imported ONLY by /p/[slug].astro, so the
+ * forum/articles stay on plain CSS. No preflight import → no global reset that
+ * could disturb the shared BaseLayout. Tailwind v4 utilities + typography only.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@plugin "@tailwindcss/typography";
+
+/* Palette class map — applies inside each block's [data-palette] wrapper */
+[data-palette] .palette-heading { color: var(--palette-heading); }
+[data-palette] .palette-body { color: var(--palette-body); }
+[data-palette] .palette-accent { color: var(--palette-accent); }
+[data-palette] .palette-accent-bg { background-color: var(--palette-accent); }
+[data-palette] .palette-accent-border { border-color: var(--palette-accent); }
+[data-palette] .palette-border-r { border-right: 4px solid var(--palette-accent); }
+[data-palette] .palette-accent2 { color: var(--palette-accent2); }
+[data-palette] .palette-accent2-bg { background-color: var(--palette-accent2); }
+[data-palette] .palette-border { border-color: var(--palette-border); }
+[data-palette] .palette-button-bg { background-color: var(--palette-buttonBg); }
+[data-palette] .palette-button-text { color: var(--palette-buttonText); }
+[data-palette] .prose-p-palette p { color: var(--palette-body); }
+[data-palette] .palette-border-t { border-top: 1px solid var(--palette-accent); }
+[data-palette] .palette-gradient-line { height: 1px; background: linear-gradient(to left, transparent, var(--palette-accent), transparent); }
+[data-palette] .palette-accent-bg-muted { background-color: color-mix(in srgb, var(--palette-accent) 20%, transparent); border-color: color-mix(in srgb, var(--palette-accent) 40%, transparent); }
+[data-palette] .palette-fill { fill: var(--palette-accent); }

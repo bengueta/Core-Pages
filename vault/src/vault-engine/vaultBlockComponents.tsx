@@ -1,0 +1,56 @@
+import {
+  HeroBlock,
+  ImageTextBlock,
+  QuoteBlock,
+  CtaBlock,
+  SpacerBlock,
+  DividerBlock,
+  HeadingBlock,
+  TextBlock,
+  StatsBlock,
+  AlertBlock,
+  ListBlock,
+  VideoBlock,
+  TwoCtaBlock,
+  FAQBlock,
+  IconFeatureBlock,
+  ChecklistBlock,
+  PricingBlock,
+  TimelineBlock,
+  EmbedBlock,
+  CalloutBlock,
+  PersonCardBlock,
+  CodeSnippetBlock,
+  ProgressBarBlock,
+} from "./blocks";
+
+/**
+ * מקור אחד: סוג בלוק → קומפוננטת תצוגה.
+ */
+export const VAULT_BLOCK_COMPONENTS = {
+  hero: HeroBlock,
+  imageText: ImageTextBlock,
+  quote: QuoteBlock,
+  cta: CtaBlock,
+  spacer: SpacerBlock,
+  divider: DividerBlock,
+  heading: HeadingBlock,
+  text: TextBlock,
+  stats: StatsBlock,
+  alert: AlertBlock,
+  list: ListBlock,
+  video: VideoBlock,
+  twoCta: TwoCtaBlock,
+  faq: FAQBlock,
+  iconFeature: IconFeatureBlock,
+  checklist: ChecklistBlock,
+  pricing: PricingBlock,
+  timeline: TimelineBlock,
+  embed: EmbedBlock,
+  callout: CalloutBlock,
+  personCard: PersonCardBlock,
+  codeSnippet: CodeSnippetBlock,
+  progressBar: ProgressBarBlock,
+} as const;
+
+export type VaultBlockType = keyof typeof VAULT_BLOCK_COMPONENTS;
