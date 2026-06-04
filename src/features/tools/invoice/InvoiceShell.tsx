@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, Printer, RotateCcw, Save, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
@@ -89,7 +89,21 @@ export function InvoiceShell() {
   const assetsRef = useRef<LiveAsset[]>([]);
   assetsRef.current = assets;
 
+  // Mobile experience: bottom-sheet editor + "more" modal.
+  const [isMobile, setIsMobile] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const mq = window.matchMedia("(max-width: 860px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [mounted]);
 
   // Async load: doc + library from localStorage, assets from IndexedDB (with one-time migration).
   useEffect(() => {
@@ -292,6 +306,151 @@ export function InvoiceShell() {
 
   const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
 
+  const builderEl = (
+    <BlockBuilder
+      tokens={tokens}
+      blocks={doc.blocks}
+      selectedId={selectedId}
+      onReorder={reorderBlocks}
+      onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+      onToggleSpan={toggleSpan}
+      onToggleHidden={toggleHidden}
+      onDelete={deleteBlock}
+      onAdd={addBlock}
+    />
+  );
+  const blockEditorEl = selectedBlock ? (
+    <BlockEditor
+      tokens={tokens}
+      doc={doc}
+      block={selectedBlock}
+      assets={assets}
+      onDocChange={onDocChange}
+      updateBlock={(patch) => updateBlock(selectedBlock.id, patch)}
+      addItem={addItem}
+      patchItem={patchItem}
+      removeItem={removeItem}
+      onManageAssets={(kind) => setAssetModal({ open: true, kind })}
+    />
+  ) : null;
+
+  const sheetAction = (label: string, icon: React.ReactNode, onClick: () => void, color = tokens.label2) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: "none", background: "transparent", color, cursor: "pointer", fontFamily: "inherit", padding: "2px 4px", minWidth: 54, flexShrink: 0 }}
+    >
+      <span style={{ width: 38, height: 38, borderRadius: 12, background: `${color}1c`, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</span>
+      <span style={{ fontSize: 10.5, fontWeight: 600 }}>{label}</span>
+    </button>
+  );
+
+  const mobileSheet = (
+    <div className="inv-sheet inv-no-print" style={{ height: sheetExpanded ? "88vh" : "54vh" }}>
+      <div className="inv-grabber" onClick={() => setSheetExpanded((v) => !v)}>
+        <span />
+      </div>
+      {selectedBlock ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 14px 10px", borderBottom: `0.5px solid ${tokens.sep}` }}>
+          <button type="button" onClick={() => setSelectedId(null)} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "none", background: tokens.fill3, color: tokens.label1, borderRadius: 999, padding: "7px 12px 7px 14px", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+            <ChevronRight size={16} /> בלוקים
+          </button>
+          <span style={{ fontSize: 15, fontWeight: 800, color: tokens.label1 }}>{BLOCK_META[selectedBlock.type].label}</span>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 8px 8px", borderBottom: `0.5px solid ${tokens.sep}`, overflowX: "auto" }}>
+          {sheetAction("נכסים", <Images size={18} />, () => setAssetModal({ open: true, kind: "logo" }), tokens.blue)}
+          {sheetAction("שמירה", <Save size={18} />, saveCurrent, tokens.green)}
+          {sheetAction("חדש", <FilePlus2 size={18} />, newDocument, tokens.label2)}
+          {sheetAction("הדפסה", <Printer size={18} />, doPrint, tokens.label2)}
+          {sheetAction("עוד", <MoreHorizontal size={18} />, () => setMoreOpen(true), tokens.label2)}
+        </div>
+      )}
+      <div className="inv-sheet-body">
+        {selectedBlock ? (
+          blockEditorEl
+        ) : (
+          <>
+            <div style={{ margin: "12px 0 14px" }}>
+              <SegmentedControl<DocType>
+                tokens={tokens}
+                value={doc.docType}
+                onChange={(v) => onDocChange({ docType: v })}
+                options={[
+                  { value: "quote", label: "הצעת מחיר" },
+                  { value: "invoice", label: "חשבונית עסקה" },
+                ]}
+              />
+            </div>
+            {builderEl}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const moreModal = (
+    <div className="inv-no-print" onMouseDown={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end" }}>
+      <div
+        dir="rtl"
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxHeight: "86vh", overflowY: "auto", background: isDark ? "rgba(18,18,24,0.98)" : "rgba(248,248,250,0.99)", borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTop: `0.5px solid ${tokens.sep}`, padding: "14px 16px calc(20px + env(safe-area-inset-bottom,0px))", color: tokens.label1 }}
+      >
+        <div className="inv-grabber" onClick={() => setMoreOpen(false)}>
+          <span />
+        </div>
+        <Section tokens={tokens} title="תבנית" titleIcon={<Palette size={13} style={{ color: tokens.label3 }} />}>
+          <div style={{ display: "flex", gap: 8, padding: "12px 14px", flexWrap: "wrap" }}>
+            {TEMPLATES.map((t) => (
+              <button key={t.id} type="button" onClick={() => useTemplate(t.id)} style={{ flex: "1 1 90px", ...glass("thin"), borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, padding: "10px 12px", color: tokens.label1, fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: t.accentColor }} />
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </Section>
+        <Section tokens={tokens} title="צבע מותג" titleIcon={<SlidersHorizontal size={13} style={{ color: tokens.label3 }} />}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", flexWrap: "wrap" }}>
+            <input type="color" value={doc.accentColor} onChange={(e) => onDocChange({ accentColor: e.target.value })} aria-label="צבע מותג" style={{ width: 38, height: 38, border: "none", borderRadius: tokens.r10, background: "transparent", cursor: "pointer", padding: 0 }} />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {ACCENT_PRESETS.map((c) => (
+                <button key={c} type="button" onClick={() => onDocChange({ accentColor: c })} aria-label={`צבע ${c}`} style={{ width: 26, height: 26, borderRadius: "50%", background: c, border: doc.accentColor.toLowerCase() === c ? `2px solid ${tokens.label1}` : `1px solid ${tokens.sep}`, cursor: "pointer" }} />
+              ))}
+            </div>
+          </div>
+        </Section>
+        <Section tokens={tokens} title="מסמכים שמורים">
+          {library.length ? (
+            library.map((e, i) => (
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", borderBottom: i === library.length - 1 ? undefined : `0.5px solid ${tokens.sep}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: tokens.label1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+                  <div style={{ fontSize: 11, color: tokens.label3 }}>{new Date(e.savedAt).toLocaleDateString("he-IL", { day: "numeric", month: "short" })}</div>
+                </div>
+                {[
+                  { lbl: "טען", col: tokens.blue, fn: () => { loadSaved(e); setMoreOpen(false); }, ic: <FolderOpen size={15} /> },
+                  { lbl: "שכפל", col: tokens.green, fn: () => duplicateSaved(e), ic: <Copy size={15} /> },
+                  { lbl: "מחק", col: tokens.red, fn: () => deleteSaved(e.id), ic: <Trash2 size={15} /> },
+                ].map((b) => (
+                  <button key={b.lbl} type="button" onClick={b.fn} aria-label={b.lbl} style={{ width: 32, height: 32, borderRadius: tokens.r10, border: "none", background: `${b.col}18`, color: b.col, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {b.ic}
+                  </button>
+                ))}
+              </div>
+            ))
+          ) : (
+            <p style={{ fontSize: 12, color: tokens.label3, padding: "12px 16px" }}>אין מסמכים שמורים עדיין.</p>
+          )}
+          <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderTop: `0.5px solid ${tokens.sep}` }}>
+            <ActionButton tokens={tokens} color={tokens.label2} onPress={exportBackup} icon={<Download size={15} />} small full>גיבוי</ActionButton>
+            <ActionButton tokens={tokens} color={tokens.label2} onPress={() => backupInputRef.current?.click()} icon={<Upload size={15} />} small full>שחזור</ActionButton>
+            <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={15} />} small>איפוס</ActionButton>
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+
   return (
     <div dir="rtl" id="tools-invoice" style={{ minHeight: "100vh", color: tokens.label1, overflowX: "hidden" }}>
       <style>{`
@@ -310,6 +469,20 @@ export function InvoiceShell() {
         @media(min-width:1040px){.inv-paper-scroll{position:sticky;top:24px}}
         #invoice-doc{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.18),0 18px 50px rgba(0,0,0,.32);}
         #tools-invoice input::placeholder,#tools-invoice textarea::placeholder{color:${tokens.label4}}
+
+        .inv-sheet{position:fixed;left:0;right:0;bottom:0;z-index:90;
+          background:${isDark ? "rgba(18,18,24,0.96)" : "rgba(248,248,250,0.97)"};
+          backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);
+          border-top:0.5px solid ${tokens.sep};
+          border-top-left-radius:22px;border-top-right-radius:22px;
+          box-shadow:0 -10px 40px rgba(0,0,0,0.32);
+          display:flex;flex-direction:column;
+          transition:height .32s cubic-bezier(.22,1,.36,1);
+          padding-bottom:env(safe-area-inset-bottom,0px);}
+        .inv-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;padding:0 12px 16px}
+        .inv-grabber{display:flex;justify-content:center;padding:8px 0 6px;cursor:grab;flex-shrink:0}
+        .inv-grabber span{width:40px;height:5px;border-radius:999px;background:${tokens.label4}}
+        @media print{.inv-sheet{display:none !important}}
         @media print{
           @page{margin:12mm}
           html,body{background:#fff !important}
@@ -342,6 +515,7 @@ export function InvoiceShell() {
           </p>
         </header>
 
+        {!isMobile ? (
         <div className="inv-grid">
           {/* ── Builder / editor ── */}
           <div className="inv-no-print" style={{ minWidth: 0 }}>
@@ -389,19 +563,7 @@ export function InvoiceShell() {
             </Section>
 
             <Section tokens={tokens} title="מבנה המסמך — גררו לסידור, לחצו לעריכה" titleIcon={<Layers size={13} style={{ color: tokens.label3 }} />}>
-              <div style={{ padding: 14 }}>
-                <BlockBuilder
-                  tokens={tokens}
-                  blocks={doc.blocks}
-                  selectedId={selectedId}
-                  onReorder={reorderBlocks}
-                  onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
-                  onToggleSpan={toggleSpan}
-                  onToggleHidden={toggleHidden}
-                  onDelete={deleteBlock}
-                  onAdd={addBlock}
-                />
-              </div>
+              <div style={{ padding: 14 }}>{builderEl}</div>
             </Section>
 
             {selectedBlock ? (
@@ -411,18 +573,7 @@ export function InvoiceShell() {
                     <X size={14} /> סגור
                   </button>
                 </div>
-                <BlockEditor
-                  tokens={tokens}
-                  doc={doc}
-                  block={selectedBlock}
-                  assets={assets}
-                  onDocChange={onDocChange}
-                  updateBlock={(patch) => updateBlock(selectedBlock.id, patch)}
-                  addItem={addItem}
-                  patchItem={patchItem}
-                  removeItem={removeItem}
-                  onManageAssets={(kind) => setAssetModal({ open: true, kind })}
-                />
+                {blockEditorEl}
               </Section>
             ) : null}
 
@@ -453,7 +604,6 @@ export function InvoiceShell() {
                 <p style={{ fontSize: 12, color: tokens.label3, padding: "12px 16px" }}>אין מסמכים שמורים עדיין.</p>
               )}
               <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderTop: `0.5px solid ${tokens.sep}` }}>
-                <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
                 <ActionButton tokens={tokens} color={tokens.label2} onPress={exportBackup} icon={<Download size={15} />} small full>גיבוי לקובץ</ActionButton>
                 <ActionButton tokens={tokens} color={tokens.label2} onPress={() => backupInputRef.current?.click()} icon={<Upload size={15} />} small full>שחזור מקובץ</ActionButton>
               </div>
@@ -475,7 +625,22 @@ export function InvoiceShell() {
             </p>
           </div>
         </div>
+        ) : (
+          <div style={{ paddingBottom: "56vh" }}>
+            <div id="invoice-doc">
+              <InvoiceDocument doc={doc} assets={assets} />
+            </div>
+            <p className="inv-no-print" style={{ fontSize: 12, color: tokens.label3, textAlign: "center", margin: "12px 0 0" }}>
+              סה״כ לתשלום {formatMoney(totals.total, doc.currency)}
+            </p>
+          </div>
+        )}
       </div>
+
+      {isMobile ? mobileSheet : null}
+      {isMobile && moreOpen ? moreModal : null}
+
+      <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
 
       {assetModal.open ? (
         <AssetManager
