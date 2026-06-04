@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Copy, Download, FilePlus2, FileText, FolderOpen, Home, Images, Layers, MoreHorizontal, Palette, Plus, Printer, RotateCcw, Save, Send, Share2, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { ActionButton, Section, SegmentedControl, getTokens, glass } from "../shared";
@@ -15,7 +15,9 @@ import { SigningView } from "./SigningView";
 import { shareDocument } from "./share";
 import { DEFAULT_INTENT, computeDocHash } from "./sign";
 import { blobUrlToDataUrl, buildSignUrl, decodeSignPayload, downscaleDataUrl, encodeSignPayload, readSignFragment } from "./signlink";
+import { PRESETS_KEY, applyPreset, capturePreset, type BlockPreset, type PresetStore } from "./presets";
 import {
+  ADDABLE_BLOCKS,
   BLOCK_META,
   TEMPLATES,
   applyTemplate,
@@ -106,6 +108,10 @@ export function InvoiceShell() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [saveDialog, setSaveDialog] = useState<{ open: boolean; name: string }>({ open: false, name: "" });
+  const [exportOpen, setExportOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [blockPresets, setBlockPresets] = useState<PresetStore>({});
+  const [presetDialog, setPresetDialog] = useState<{ open: boolean; name: string; type: BlockType | null; data: Record<string, unknown> | null }>({ open: false, name: "", type: null, data: null });
 
   const toast = (m: string) => {
     setToastMsg(m);
@@ -195,6 +201,21 @@ export function InvoiceShell() {
     };
   }, []);
 
+  // Block presets (load once, persist on change).
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      if (raw) setBlockPresets(JSON.parse(raw) as PresetStore);
+    } catch {}
+  }, [mounted]);
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(blockPresets));
+    } catch {}
+  }, [blockPresets, mounted]);
+
   useEffect(() => {
     if (!mounted) return;
     try {
@@ -249,6 +270,38 @@ export function InvoiceShell() {
     });
     setSignModal({ open: false, blockId: null });
     toast("נחתם ✓");
+  };
+
+  /* duplicate a block + block presets */
+  const duplicateBlock = (id: string) => {
+    setDoc((prev) => {
+      const idx = prev.blocks.findIndex((b) => b.id === id);
+      if (idx < 0) return prev;
+      const copy: Block = { ...prev.blocks[idx], id: newItemId() };
+      const blocks = [...prev.blocks];
+      blocks.splice(idx + 1, 0, copy);
+      return { ...prev, blocks };
+    });
+    toast("הבלוק שוכפל ✓");
+  };
+  const openPresetDialog = (block: Block) => setPresetDialog({ open: true, name: "", type: block.type, data: capturePreset(block, doc) });
+  const confirmSavePreset = () => {
+    const { type, data, name } = presetDialog;
+    if (!type || !data) return;
+    const nm = name.trim() || BLOCK_META[type].label;
+    setBlockPresets((prev) => ({ ...prev, [type]: [{ id: newItemId(), name: nm, data }, ...(prev[type] ?? [])].slice(0, 20) }));
+    setPresetDialog({ open: false, name: "", type: null, data: null });
+    toast("פריסט נשמר ✓");
+  };
+  const applyPresetToBlock = (block: Block, preset: BlockPreset) => {
+    const { blockPatch, docPatch } = applyPreset(block.type, preset.data);
+    if (blockPatch) updateBlock(block.id, blockPatch);
+    if (docPatch) onDocChange(docPatch);
+    toast("פריסט נטען ✓");
+  };
+  const deletePreset = (type: BlockType, id: string) => {
+    if (typeof window !== "undefined" && !window.confirm("למחוק את הפריסט?")) return;
+    setBlockPresets((prev) => ({ ...prev, [type]: (prev[type] ?? []).filter((p) => p.id !== id) }));
   };
 
   /* items */
@@ -452,6 +505,11 @@ export function InvoiceShell() {
       removeItem={removeItem}
       onManageAssets={(kind) => setAssetModal({ open: true, kind })}
       onSignClient={openSign}
+      presets={blockPresets[selectedBlock.type] ?? []}
+      onSavePreset={() => openPresetDialog(selectedBlock)}
+      onApplyPreset={(preset) => applyPresetToBlock(selectedBlock, preset)}
+      onDeletePreset={(id) => deletePreset(selectedBlock.type, id)}
+      onDuplicate={() => duplicateBlock(selectedBlock.id)}
     />
   ) : null;
 
@@ -480,12 +538,9 @@ export function InvoiceShell() {
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, padding: "0 6px 8px", borderBottom: `0.5px solid ${tokens.sep}`, overflowX: "auto" }}>
-          {sheetAction(sending ? "מכין…" : "לחתימה", <Send size={18} />, sendForSignature, tokens.teal)}
-          {sheetAction(sharing ? "מכין…" : "שתף", <Share2 size={18} />, doShare, tokens.green)}
+          {sheetAction("בלוק", <Plus size={18} />, () => setAddOpen(true), tokens.blue)}
           {sheetAction("נכסים", <Images size={18} />, () => setAssetModal({ open: true, kind: "logo" }), tokens.blue)}
-          {sheetAction("שמירה", <Save size={18} />, openSaveDialog, tokens.label2)}
-          {sheetAction("חדש", <FilePlus2 size={18} />, newDocument, tokens.label2)}
-          {sheetAction("הדפסה", <Printer size={18} />, doPrint, tokens.label2)}
+          {sheetAction(sending || sharing ? "מכין…" : "ייצא", <Share2 size={18} />, () => setExportOpen(true), tokens.green)}
           {sheetAction("עוד", <MoreHorizontal size={18} />, () => setMoreOpen(true), tokens.label2)}
         </div>
       )}
@@ -573,6 +628,48 @@ export function InvoiceShell() {
       </div>
     </div>
   );
+
+  const bottomSheetWrap = (onClose: () => void, children: React.ReactNode) => (
+    <div className="inv-no-print" onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 96, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div dir="rtl" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(560px,100%)", maxHeight: "86vh", overflowY: "auto", background: isDark ? "rgba(18,18,24,0.98)" : "rgba(248,248,250,0.99)", borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTop: `0.5px solid ${tokens.sep}`, padding: "8px 16px calc(18px + env(safe-area-inset-bottom,0px))", color: tokens.label1 }}>
+        <div className="inv-grabber" onClick={onClose}><span /></div>
+        {children}
+      </div>
+    </div>
+  );
+
+  const exportItem = (label: string, icon: React.ReactNode, color: string, fn: () => void) => (
+    <button type="button" onClick={() => { setExportOpen(false); fn(); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "13px 14px", borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, background: tokens.fill3, color: tokens.label1, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", marginBottom: 8 }}>
+      <span style={{ width: 34, height: 34, borderRadius: 10, background: `${color}1f`, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</span>
+      {label}
+    </button>
+  );
+
+  const exportSheet = bottomSheetWrap(() => setExportOpen(false), (
+    <>
+      <h3 style={{ fontSize: 18, fontWeight: 800, margin: "2px 2px 12px" }}>ייצוא ושיתוף</h3>
+      {exportItem(sending ? "מכין קישור…" : "שלח לחתימה (קישור)", <Send size={18} />, tokens.teal, sendForSignature)}
+      {exportItem(sharing ? "מכין PDF…" : "שיתוף PDF (וואטסאפ)", <Share2 size={18} />, tokens.green, doShare)}
+      {exportItem("הדפסה / שמירה כ-PDF", <Printer size={18} />, tokens.blue, doPrint)}
+      {exportItem("שמירת מסמך בספרייה", <Save size={18} />, tokens.label2, openSaveDialog)}
+      {exportItem("מסמך חדש", <FilePlus2 size={18} />, tokens.label2, newDocument)}
+      {exportItem("גיבוי לקובץ", <Download size={18} />, tokens.label2, exportBackup)}
+      {exportItem("שחזור מקובץ", <Upload size={18} />, tokens.label2, () => backupInputRef.current?.click())}
+    </>
+  ));
+
+  const addSheet = bottomSheetWrap(() => setAddOpen(false), (
+    <>
+      <h3 style={{ fontSize: 18, fontWeight: 800, margin: "2px 2px 12px" }}>הוספת בלוק</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {ADDABLE_BLOCKS.filter((t) => !(BLOCK_META[t].unique && doc.blocks.some((b) => b.type === t))).map((t) => (
+          <button key={t} type="button" onClick={() => { setAddOpen(false); addBlock(t); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 12px", borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, background: tokens.fill3, color: tokens.label1, fontSize: 13.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>
+            <Plus size={15} style={{ color: tokens.blue }} /> {BLOCK_META[t].label}
+          </button>
+        ))}
+      </div>
+    </>
+  ));
 
   return (
     <div dir="rtl" id="tools-invoice" style={{ minHeight: "100vh", color: tokens.label1, overflowX: "hidden" }}>
@@ -732,13 +829,9 @@ export function InvoiceShell() {
               </div>
             </Section>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <ActionButton tokens={tokens} color={tokens.teal} onPress={sendForSignature} icon={<Send size={17} />} full>{sending ? "מכין קישור…" : "שלח לחתימה (קישור)"}</ActionButton>
-              <div style={{ display: "flex", gap: 10 }}>
-                <ActionButton tokens={tokens} color={tokens.green} onPress={doShare} icon={<Share2 size={17} />} full>{sharing ? "מכין PDF…" : "שיתוף / PDF"}</ActionButton>
-                <ActionButton tokens={tokens} color={tokens.blue} onPress={doPrint} icon={<Printer size={17} />} full>הדפסה</ActionButton>
-                <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={16} />} small>איפוס</ActionButton>
-              </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <ActionButton tokens={tokens} color={tokens.green} onPress={() => setExportOpen(true)} icon={<Share2 size={17} />} full>{sending || sharing ? "מכין…" : "ייצוא ושיתוף"}</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.red} onPress={resetAll} icon={<RotateCcw size={16} />} small>איפוס</ActionButton>
             </div>
           </div>
 
@@ -766,6 +859,8 @@ export function InvoiceShell() {
 
       {isMobile ? mobileSheet : null}
       {isMobile && moreOpen ? moreModal : null}
+      {exportOpen ? exportSheet : null}
+      {addOpen ? addSheet : null}
 
       <input ref={backupInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importBackup(f); }} />
 
@@ -792,6 +887,28 @@ export function InvoiceShell() {
             <div style={{ display: "flex", gap: 10 }}>
               <ActionButton tokens={tokens} color={tokens.green} onPress={confirmSave} icon={<Save size={16} />} small full>שמור</ActionButton>
               <ActionButton tokens={tokens} color={tokens.label3} onPress={() => setSaveDialog({ open: false, name: "" })} small full>ביטול</ActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {presetDialog.open ? (
+        <div className="inv-no-print" onMouseDown={() => setPresetDialog({ open: false, name: "", type: null, data: null })} style={{ position: "fixed", inset: 0, zIndex: 10001, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div dir="rtl" onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(420px,100%)", background: "rgba(20,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: tokens.r28, padding: 20, color: tokens.label1, boxShadow: "0 24px 64px rgba(0,0,0,0.55)" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>שמירת פריסט</h3>
+            <p style={{ fontSize: 12.5, color: tokens.label3, marginBottom: 14 }}>שם לפריסט הבלוק — לטעינה מהירה בעתיד</p>
+            <input
+              autoFocus
+              value={presetDialog.name}
+              onChange={(e) => setPresetDialog((s) => ({ ...s, name: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmSavePreset(); }}
+              placeholder="שם הפריסט"
+              dir="rtl"
+              style={{ width: "100%", marginBottom: 16, padding: "12px 14px", borderRadius: tokens.r13, border: `1px solid ${tokens.sep}`, background: "rgba(0,0,0,0.25)", color: tokens.label1, fontSize: 16, fontWeight: 600, fontFamily: "inherit", outline: "none" }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <ActionButton tokens={tokens} color={tokens.blue} onPress={confirmSavePreset} icon={<Save size={16} />} small full>שמור פריסט</ActionButton>
+              <ActionButton tokens={tokens} color={tokens.label3} onPress={() => setPresetDialog({ open: false, name: "", type: null, data: null })} small full>ביטול</ActionButton>
             </div>
           </div>
         </div>

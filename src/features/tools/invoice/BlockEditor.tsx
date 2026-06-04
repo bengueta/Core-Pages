@@ -1,12 +1,13 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Copy, Plus, Save, X } from "lucide-react";
 
 import { ActionButton, HebrewDatePicker, IOSInput, SegmentedControl } from "../shared";
 import type { Tokens } from "../shared";
 import { AssetPicker } from "./AssetManager";
 import { AreaField, ItemRow, TextField } from "./fields";
 import { DEFAULT_INTENT, formatSignedAt } from "./sign";
+import { supportsPreset, type BlockPreset } from "./presets";
 import {
   CURRENCY_SYMBOL,
   type AssetKind,
@@ -37,6 +38,11 @@ export function BlockEditor({
   removeItem,
   onManageAssets,
   onSignClient,
+  presets,
+  onSavePreset,
+  onApplyPreset,
+  onDeletePreset,
+  onDuplicate,
 }: {
   tokens: Tokens;
   doc: InvoiceDoc;
@@ -49,11 +55,45 @@ export function BlockEditor({
   removeItem: (id: string) => void;
   onManageAssets: (kind: AssetKind) => void;
   onSignClient: (blockId: string) => void;
+  presets: BlockPreset[];
+  onSavePreset: () => void;
+  onApplyPreset: (preset: BlockPreset) => void;
+  onDeletePreset: (id: string) => void;
+  onDuplicate: () => void;
 }) {
   const symbol = CURRENCY_SYMBOL[doc.currency];
   const rowPad = "12px 16px";
 
-  switch (block.type) {
+  const header = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 12px 12px", borderBottom: `0.5px solid ${tokens.sep}` }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <ActionButton tokens={tokens} color={tokens.label2} onPress={onDuplicate} icon={<Copy size={14} />} small full>שכפל בלוק</ActionButton>
+        {supportsPreset(block.type) ? (
+          <ActionButton tokens={tokens} color={tokens.blue} onPress={onSavePreset} icon={<Save size={14} />} small full>שמור פריסט</ActionButton>
+        ) : null}
+      </div>
+      {supportsPreset(block.type) && presets.length ? (
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: tokens.label3, margin: "2px 2px 7px" }}>פריסטים שמורים</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {presets.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", background: tokens.fill3, border: `1px solid ${tokens.sep}`, borderRadius: tokens.r10 }}>
+                <button type="button" onClick={() => onApplyPreset(p)} title="טען פריסט" style={{ flex: 1, minWidth: 0, textAlign: "start", border: "none", background: "transparent", color: tokens.label1, fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", padding: "9px 10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </button>
+                <button type="button" onClick={() => onDeletePreset(p.id)} aria-label="מחק פריסט" style={{ flexShrink: 0, width: 28, height: 28, marginInlineEnd: 4, borderRadius: 8, border: "none", background: `${tokens.red}1f`, color: tokens.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const body = (() => {
+    switch (block.type) {
     case "brand":
       return (
         <div>
@@ -262,5 +302,13 @@ export function BlockEditor({
       return <p style={{ fontSize: 13, color: tokens.label3, padding: rowPad }}>קו מפריד בצבע המותג — אין מה לערוך.</p>;
     default:
       return null;
-  }
+    }
+  })();
+
+  return (
+    <div>
+      {header}
+      {body}
+    </div>
+  );
 }
