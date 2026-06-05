@@ -8,13 +8,13 @@ export type Starter = {
   description: string;
   docType: DocType;
   accentColor: string;
+  kind: "business" | "proposal"; // business = pick type+structure in config; proposal = distinct layout
 };
 
-/** Genuinely distinct base documents. Color & structure are chosen in the config step. */
+/** Two genuinely-different starting points; type/structure/color chosen in config. */
 export const STARTERS: Starter[] = [
-  { id: "quote", name: "הצעת מחיר", description: "פריטים, הנחה ומע״מ עם סכום לתשלום ברור.", docType: "quote", accentColor: "#8a6327" },
-  { id: "invoice", name: "חשבונית עסקה", description: "חשבונית עם פרטי תשלום ותאריך לתשלום.", docType: "invoice", accentColor: "#0a84ff" },
-  { id: "contract", name: "חוזה עבודה", description: "סעיפי התקשרות וחתימת שני הצדדים.", docType: "contract", accentColor: "#1f6f5c" },
+  { id: "business", name: "מסמך עסקי", description: "הצעת מחיר · חשבונית · חוזה — בחירת סוג, מבנה וצבע.", docType: "quote", accentColor: "#8a6327", kind: "business" },
+  { id: "proposal", name: "הצעה מעוצבת", description: "דף הצעה עם כותרת גדולה, רשימת ערך ותמחור.", docType: "proposal", accentColor: "#7c3aed", kind: "proposal" },
 ];
 
 /** Structure options (layout), independent of color. */
@@ -44,12 +44,15 @@ export function buildStarter(s: Starter): InvoiceDoc {
 /** Build a document from the config step (type + structure + color). */
 export function buildConfigured(docType: DocType, structureId: string, accent: string): InvoiceDoc {
   let doc = baseDoc(docType, accent);
-  const st = STRUCTURES.find((s) => s.id === structureId);
-  if (st?.templateId) {
-    const tpl = TEMPLATES.find((t) => t.id === st.templateId);
-    if (tpl) doc = { ...doc, blocks: applyTemplate(doc.blocks, tpl) };
+  // Proposal has its own purpose-built layout — don't reflow it with generic structures.
+  if (docType !== "proposal") {
+    const st = STRUCTURES.find((s) => s.id === structureId);
+    if (st?.templateId) {
+      const tpl = TEMPLATES.find((t) => t.id === st.templateId);
+      if (tpl) doc = { ...doc, blocks: applyTemplate(doc.blocks, tpl) };
+    }
   }
-  doc.accentColor = accent; // keep the chosen color (templates carry their own)
+  doc.accentColor = accent;
   return doc;
 }
 

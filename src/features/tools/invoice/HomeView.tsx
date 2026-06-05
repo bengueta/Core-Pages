@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Component, type ReactNode } from "react";
 import Link from "next/link";
-import { Copy, FileText, FolderOpen, Home, LayoutTemplate, PenLine, Save, Sparkles, Trash2, X } from "lucide-react";
+import { Copy, FileText, FolderOpen, Home, LayoutTemplate, PenLine, Plus, Save, Sparkles, Trash2, User, X } from "lucide-react";
 
 import { ActionButton, getTokens, glass } from "../shared";
 import { InvoiceDocument } from "./InvoiceDocument";
-import { BLOCK_META, DOC_TYPE_LABEL, formatMoney, type DocType, type InvoiceDoc, type SavedClient, type SavedService } from "./engine";
+import { BLOCK_META, DOC_TYPE_LABEL, defaultDoc, formatMoney, type DocType, type InvoiceDoc, type SavedClient, type SavedService } from "./engine";
 import type { LiveAsset } from "./storage";
 import type { PresetStore } from "./presets";
 import { STARTERS, STRUCTURES, buildConfigured, previewDoc } from "./starters";
@@ -15,6 +15,17 @@ type SavedDoc = { id: string; name: string; savedAt: string; doc: InvoiceDoc };
 
 const BASE_W = 620;
 const ACCENT_PRESETS = ["#8a6327", "#1a1a22", "#0a84ff", "#2f8f4e", "#7c3aed", "#be123c", "#0e7490", "#e0457b"];
+
+/** Never let one malformed saved doc crash the whole page. */
+class ThumbBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 function DocThumb({ doc, assets, height = 188 }: { doc: InvoiceDoc; assets: LiveAsset[]; height?: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -26,11 +37,14 @@ function DocThumb({ doc, assets, height = 188 }: { doc: InvoiceDoc; assets: Live
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const safe = { ...defaultDoc, ...doc };
   return (
     <div ref={ref} style={{ position: "relative", width: "100%", height, overflow: "hidden", background: "#fff", borderRadius: 10, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 0, right: 0, width: BASE_W, transform: `scale(${scale})`, transformOrigin: "top right" }}>
-        <InvoiceDocument doc={doc} assets={assets} />
-      </div>
+      <ThumbBoundary fallback={<div style={{ color: "#888", fontSize: 12, padding: 16 }}>תצוגה לא זמינה</div>}>
+        <div style={{ position: "absolute", top: 0, right: 0, width: BASE_W, transform: `scale(${scale})`, transformOrigin: "top right" }}>
+          <InvoiceDocument doc={safe} assets={assets} />
+        </div>
+      </ThumbBoundary>
     </div>
   );
 }
@@ -49,6 +63,7 @@ export function HomeView({
   onDuplicateSaved,
   onDeleteClient,
   onDeleteService,
+  onAddClient,
 }: {
   isDark: boolean;
   library: SavedDoc[];
@@ -63,10 +78,12 @@ export function HomeView({
   onDuplicateSaved: (entry: SavedDoc) => void;
   onDeleteClient: (id: string) => void;
   onDeleteService: (id: string) => void;
+  onAddClient: (c: { name: string; clientId: string; addr: string }) => void;
 }) {
   const tokens = getTokens(isDark);
-  const [tab, setTab] = useState<"templates" | "saves">("templates");
-  const [cfg, setCfg] = useState<{ docType: DocType; structureId: string; accent: string } | null>(null);
+  const [tab, setTab] = useState<"templates" | "saves" | "clients">("templates");
+  const [cfg, setCfg] = useState<{ docType: DocType; structureId: string; accent: string; kind: "business" | "proposal" } | null>(null);
+  const [newClient, setNewClient] = useState<{ name: string; clientId: string; addr: string }>({ name: "", clientId: "", addr: "" });
   const [pendingDel, setPendingDel] = useState<{ message: string; run: () => void } | null>(null);
 
   const logos = assets.filter((a) => a.kind === "logo");
@@ -75,7 +92,7 @@ export function HomeView({
     (presets[t] ?? []).map((p) => ({ type: t as string, ...p }))
   );
 
-  const tabBtn = (id: "templates" | "saves", label: string, icon: React.ReactNode) => (
+  const tabBtn = (id: "templates" | "saves" | "clients", label: string, icon: React.ReactNode) => (
     <button type="button" onClick={() => setTab(id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 12px", borderRadius: tokens.r13, border: "none", background: tab === id ? "rgba(255,255,255,0.14)" : "transparent", color: tab === id ? tokens.label1 : tokens.label2, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
       {icon} {label}
     </button>
@@ -121,9 +138,10 @@ export function HomeView({
 
         <h1 style={{ fontSize: "clamp(26px,6vw,42px)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.08, marginBottom: 16 }}>בחרו מסמך להתחלה</h1>
 
-        <div style={{ display: "flex", gap: 4, ...glass("thin"), borderRadius: tokens.r16, padding: 4, marginBottom: 20, maxWidth: 360 }}>
+        <div style={{ display: "flex", gap: 4, ...glass("thin"), borderRadius: tokens.r16, padding: 4, marginBottom: 20, maxWidth: 460 }}>
           {tabBtn("templates", "תבניות", <LayoutTemplate size={17} />)}
           {tabBtn("saves", "שמירות", <Save size={17} />)}
+          {tabBtn("clients", "לקוחות", <User size={17} />)}
         </div>
 
         {tab === "templates" ? (
@@ -133,7 +151,7 @@ export function HomeView({
             </button>
             <div className="tpl-grid">
               {STARTERS.map((s) => (
-                <button key={s.id} type="button" onClick={() => setCfg({ docType: s.docType, structureId: "classic", accent: s.accentColor })} style={{ textAlign: "start", ...glass("secondary"), border: `1px solid rgba(255,255,255,0.12)`, borderRadius: tokens.r20, padding: 10, cursor: "pointer", fontFamily: "inherit", color: tokens.label1, display: "flex", flexDirection: "column", gap: 10 }}>
+                <button key={s.id} type="button" onClick={() => setCfg({ docType: s.docType, structureId: "classic", accent: s.accentColor, kind: s.kind })} style={{ textAlign: "start", ...glass("secondary"), border: `1px solid rgba(255,255,255,0.12)`, borderRadius: tokens.r20, padding: 10, cursor: "pointer", fontFamily: "inherit", color: tokens.label1, display: "flex", flexDirection: "column", gap: 10 }}>
                   <DocThumb doc={previewDoc(s.docType, "classic", s.accentColor)} assets={assets} />
                   <div style={{ padding: "0 4px 4px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -146,7 +164,7 @@ export function HomeView({
               ))}
             </div>
           </>
-        ) : (
+        ) : tab === "saves" ? (
           <>
             {sectionTitle("מסמכים שמורים", <FolderOpen size={16} style={{ color: tokens.blue }} />)}
             {library.length ? (
@@ -192,22 +210,6 @@ export function HomeView({
               <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין פריסטים שמורים.</p>
             )}
 
-            {sectionTitle("לקוחות שמורים", <FolderOpen size={16} style={{ color: tokens.teal }} />)}
-            {clients.length ? (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {clients.map((c) => (
-                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, ...glass("thin"), border: `1px solid ${tokens.sep}`, borderRadius: 999, padding: "6px 6px 6px 12px" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
-                    <button type="button" onClick={() => setPendingDel({ message: `למחוק את הלקוח "${c.name}"?`, run: () => onDeleteClient(c.id) })} aria-label="מחק" style={{ width: 24, height: 24, borderRadius: 999, border: "none", background: `${tokens.red}1f`, color: tokens.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <X size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין לקוחות שמורים — שמרו לקוח מתוך בלוק הלקוח.</p>
-            )}
-
             {sectionTitle("קטלוג שירותים", <Sparkles size={16} style={{ color: tokens.blue }} />)}
             {services.length ? (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -248,6 +250,37 @@ export function HomeView({
               <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין לוגואים שמורים.</p>
             )}
           </>
+        ) : (
+          <>
+            <div style={{ ...glass("secondary"), border: `1px solid rgba(255,255,255,0.12)`, borderRadius: tokens.r20, padding: 14, marginBottom: 18, maxWidth: 460 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>הוספת לקוח</h3>
+              <input value={newClient.name} onChange={(e) => setNewClient((s) => ({ ...s, name: e.target.value }))} placeholder="שם הלקוח / החברה" dir="rtl" style={{ width: "100%", marginBottom: 8, padding: "11px 13px", borderRadius: tokens.r10, border: `1px solid ${tokens.sep}`, background: "rgba(0,0,0,0.22)", color: tokens.label1, fontSize: 15, fontWeight: 600, fontFamily: "inherit", outline: "none" }} />
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <input value={newClient.clientId} onChange={(e) => setNewClient((s) => ({ ...s, clientId: e.target.value }))} placeholder="ח.פ / ת.ז" dir="ltr" style={{ flex: 1, padding: "11px 13px", borderRadius: tokens.r10, border: `1px solid ${tokens.sep}`, background: "rgba(0,0,0,0.22)", color: tokens.label1, fontSize: 15, fontWeight: 600, fontFamily: "inherit", outline: "none" }} />
+                <input value={newClient.addr} onChange={(e) => setNewClient((s) => ({ ...s, addr: e.target.value }))} placeholder="כתובת" dir="rtl" style={{ flex: 1, padding: "11px 13px", borderRadius: tokens.r10, border: `1px solid ${tokens.sep}`, background: "rgba(0,0,0,0.22)", color: tokens.label1, fontSize: 15, fontWeight: 600, fontFamily: "inherit", outline: "none" }} />
+              </div>
+              <ActionButton tokens={tokens} color={tokens.green} onPress={() => { if (newClient.name.trim()) { onAddClient(newClient); setNewClient({ name: "", clientId: "", addr: "" }); } }} icon={<Plus size={16} />} small full>הוסף לספר הלקוחות</ActionButton>
+            </div>
+
+            {sectionTitle("ספר לקוחות", <User size={16} style={{ color: tokens.teal }} />)}
+            {clients.length ? (
+              <div className="saves-grid">
+                {clients.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, ...glass("thin"), border: `1px solid ${tokens.sep}`, borderRadius: tokens.r16, padding: "12px 14px" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                      {c.clientId || c.addr ? <div style={{ fontSize: 11.5, color: tokens.label3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[c.clientId, c.addr].filter(Boolean).join(" · ")}</div> : null}
+                    </div>
+                    <button type="button" onClick={() => setPendingDel({ message: `למחוק את הלקוח "${c.name}"?`, run: () => onDeleteClient(c.id) })} aria-label="מחק" style={{ width: 32, height: 32, borderRadius: 9, border: "none", background: `${tokens.red}1f`, color: tokens.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: tokens.label3, padding: "4px 4px 8px" }}>אין לקוחות שמורים — הוסיפו כאן או מתוך בלוק הלקוח.</p>
+            )}
+          </>
         )}
       </div>
 
@@ -262,23 +295,27 @@ export function HomeView({
 
             <DocThumb doc={previewDoc(cfg.docType, cfg.structureId, cfg.accent)} assets={assets} height={210} />
 
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: tokens.label3, margin: "14px 2px 7px" }}>סוג מסמך</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              {(["quote", "invoice", "contract"] as DocType[]).map((t) => (
-                <button key={t} type="button" onClick={() => setCfg((c) => (c ? { ...c, docType: t } : c))} style={{ flex: 1, padding: "9px 6px", borderRadius: tokens.r10, border: `1px solid ${cfg.docType === t ? tokens.blue : tokens.sep}`, background: cfg.docType === t ? `${tokens.blue}22` : tokens.fill4, color: tokens.label1, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
-                  {DOC_TYPE_LABEL[t]}
-                </button>
-              ))}
-            </div>
+            {cfg.kind === "business" ? (
+              <>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: tokens.label3, margin: "14px 2px 7px" }}>סוג מסמך</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["quote", "invoice", "contract"] as DocType[]).map((t) => (
+                    <button key={t} type="button" onClick={() => setCfg((c) => (c ? { ...c, docType: t } : c))} style={{ flex: 1, padding: "9px 6px", borderRadius: tokens.r10, border: `1px solid ${cfg.docType === t ? tokens.blue : tokens.sep}`, background: cfg.docType === t ? `${tokens.blue}22` : tokens.fill4, color: tokens.label1, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+                      {DOC_TYPE_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
 
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: tokens.label3, margin: "12px 2px 7px" }}>מבנה</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              {STRUCTURES.map((st) => (
-                <button key={st.id} type="button" onClick={() => setCfg((c) => (c ? { ...c, structureId: st.id } : c))} style={{ flex: 1, padding: "9px 6px", borderRadius: tokens.r10, border: `1px solid ${cfg.structureId === st.id ? tokens.blue : tokens.sep}`, background: cfg.structureId === st.id ? `${tokens.blue}22` : tokens.fill4, color: tokens.label1, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
-                  {st.name}
-                </button>
-              ))}
-            </div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: tokens.label3, margin: "12px 2px 7px" }}>מבנה</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {STRUCTURES.map((st) => (
+                    <button key={st.id} type="button" onClick={() => setCfg((c) => (c ? { ...c, structureId: st.id } : c))} style={{ flex: 1, padding: "9px 6px", borderRadius: tokens.r10, border: `1px solid ${cfg.structureId === st.id ? tokens.blue : tokens.sep}`, background: cfg.structureId === st.id ? `${tokens.blue}22` : tokens.fill4, color: tokens.label1, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+                      {st.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
 
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: tokens.label3, margin: "12px 2px 7px" }}>צבע מותג</label>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>

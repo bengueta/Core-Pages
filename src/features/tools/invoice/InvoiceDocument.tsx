@@ -75,7 +75,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
           <div style={{ fontSize: 12, color: PAPER_MUTED }}>
             תאריך: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(doc.issueDate)}</span>
           </div>
-          {doc.docType === "quote" ? (
+          {doc.docType === "quote" || doc.docType === "proposal" ? (
             <div style={{ fontSize: 12, color: PAPER_MUTED }}>
               בתוקף עד: <span style={{ color: PAPER_INK, fontWeight: 600 }}>{formatDate(addDays(doc.issueDate, doc.validDays))}</span>
             </div>

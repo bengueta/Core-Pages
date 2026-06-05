@@ -2,12 +2,13 @@
  * Pure quote/invoice engine + document model — NO React, NO side effects.
  */
 
-export type DocType = "quote" | "invoice" | "contract";
+export type DocType = "quote" | "invoice" | "contract" | "proposal";
 
 export const DOC_TYPE_LABEL: Record<DocType, string> = {
   quote: "הצעת מחיר",
   invoice: "חשבונית עסקה",
   contract: "חוזה עבודה",
+  proposal: "הצעה מעוצבת",
 };
 export type DiscountMode = "none" | "percent" | "amount";
 export type Currency = "ILS" | "USD" | "EUR" | "GBP";
@@ -107,6 +108,21 @@ export function defaultBlocks(docType: DocType): Block[] {
     span: span ?? BLOCK_META[type].defaultSpan,
     ...extra,
   });
+
+  if (docType === "proposal") {
+    return [
+      mk("brand", 2),
+      mk("heading", 2, { title: "הצעה עבורך", body: "פתרון מותאם אישית להצלחת הפרויקט", align: "center" }),
+      mk("divider", 2),
+      mk("client", 2),
+      mk("text", 2, { title: "על ההצעה", body: "תיאור קצר של הפתרון, הערך והיתרונות עבור הלקוח." }),
+      mk("bullets", 2, { title: "מה כלול", body: "אפיון ואסטרטגיה\nעיצוב ומיתוג\nליווי ותמיכה" }),
+      mk("items", 2),
+      mk("totals", 2),
+      mk("signature", 1, { signerName: "", align: "right", signatureAssetId: null }),
+      mk("notes", 2),
+    ];
+  }
 
   if (docType === "contract") {
     return [

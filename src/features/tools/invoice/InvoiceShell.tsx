@@ -356,6 +356,16 @@ export function InvoiceShell() {
   };
   const applyClient = (c: SavedClient) => onDocChange({ clientName: c.name, clientId: c.clientId ?? "", clientAddr: c.addr ?? "" });
   const deleteClient = (id: string) => setClients((prev) => prev.filter((c) => c.id !== id));
+  const addClientManual = (c: { name: string; clientId: string; addr: string }) => {
+    const name = c.name.trim();
+    if (!name) return;
+    if (clients.some((x) => x.name === name)) {
+      toast("הלקוח כבר שמור");
+      return;
+    }
+    setClients((prev) => [{ id: newItemId(), name, clientId: c.clientId, addr: c.addr }, ...prev].slice(0, 100));
+    toast("הלקוח נוסף ✓");
+  };
 
   /* service catalog */
   const saveServices = () => {
@@ -596,6 +606,7 @@ export function InvoiceShell() {
         onDuplicateSaved={duplicateSaved}
         onDeleteClient={deleteClient}
         onDeleteService={deleteService}
+        onAddClient={addClientManual}
       />
     );
 
