@@ -1,0 +1,25 @@
+---
+/**
+ * Full-screen, chrome-less layout for the builder studio and its preview iframe.
+ * No site header/footer — the studio brings its own toolbar.
+ */
+import "../styles/global.css";
+import "../styles/blocks.css";
+
+type Props = { title?: string };
+const { title = "Vault Studio" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body class="vault-body">
+    <slot />
+  </body>
+</html>

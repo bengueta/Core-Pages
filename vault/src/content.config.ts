@@ -22,6 +22,7 @@ export const collections = {
       slug: z.string().regex(/^[a-z0-9-]+$/),
       updated: z.string().optional(),
       author: z.string().optional(),
+      heroImage: z.string().optional(),
       draft: z.boolean().optional().default(false),
       blocks: z.array(
         z.object({ type: z.string(), props: z.record(z.any()).default({}) })
