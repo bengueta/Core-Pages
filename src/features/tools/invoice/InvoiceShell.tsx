@@ -287,6 +287,9 @@ export function InvoiceShell() {
       ...(type === "text" ? { title: "", body: "" } : {}),
       ...(type === "heading" ? { title: "כותרת מקטע", body: "", align: "right" as const } : {}),
       ...(type === "bullets" ? { title: "", body: "פריט ראשון\nפריט שני" } : {}),
+      ...(type === "terms" ? { title: "תנאים", body: "סעיף ראשון\nסעיף שני" } : {}),
+      ...(type === "keyvalue" ? { title: "", body: "שם: ערך" } : {}),
+      ...(type === "footer" ? { body: "תודה על שיתוף הפעולה" } : {}),
       ...(type === "spacer" ? { height: 24 } : {}),
     };
     setDoc((prev) => ({ ...prev, blocks: [...prev.blocks, nb] }));
@@ -649,6 +652,7 @@ export function InvoiceShell() {
       onSaveClient={saveClient}
       onAddService={addService}
       onSaveServices={saveServices}
+      toast={toast}
     />
   ) : null;
 

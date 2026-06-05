@@ -131,7 +131,7 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
             <TotalRow label="סכום ביניים" value={fmt(t.subtotal)} />
             {t.discount > 0 ? <TotalRow label="הנחה" value={`- ${fmt(t.discount)}`} /> : null}
             {doc.vatExempt ? (
-              <TotalRow label="עוסק פטור — לא חל מע״מ" value="" muted />
+              doc.showExemptNote !== false ? <TotalRow label="עוסק פטור — לא חל מע״מ" value="" muted /> : null
             ) : doc.pricesIncludeVat ? (
               <TotalRow label={`כולל מע״מ ${doc.vatRate}%`} value={fmt(t.vat)} muted />
             ) : (
@@ -274,6 +274,11 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
       return <div style={{ height: 2, background: accent, opacity: 0.85, borderRadius: 2 }} />;
     case "spacer":
       return <div style={{ height: block.height ?? 24 }} />;
+    case "footer": {
+      const txt = (block.body || "").trim();
+      if (!txt) return null;
+      return <div style={{ textAlign: "center", fontSize: 11, color: PAPER_MUTED, lineHeight: 1.5 }}>{txt}{doc.bizName ? ` · ${doc.bizName}` : ""}</div>;
+    }
     default:
       return null;
   }
@@ -319,10 +324,6 @@ export function InvoiceDocument({
             </div>
           );
         })}
-      </div>
-
-      <div style={{ marginTop: 28, textAlign: "center", fontSize: 11, color: PAPER_MUTED }}>
-        תודה על שיתוף הפעולה · {doc.bizName || ""}
       </div>
     </div>
   );

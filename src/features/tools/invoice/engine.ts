@@ -37,7 +37,8 @@ export type BlockType =
   | "keyvalue"
   | "text"
   | "divider"
-  | "spacer";
+  | "spacer"
+  | "footer";
 
 export type BlockSpan = 1 | 2;
 export type BlockAlign = "right" | "center" | "left";
@@ -86,6 +87,7 @@ export const BLOCK_META: Record<BlockType, BlockMeta> = {
   text: { type: "text", label: "טקסט חופשי", defaultSpan: 2, unique: false },
   divider: { type: "divider", label: "קו מפריד", defaultSpan: 2, unique: false },
   spacer: { type: "spacer", label: "רווח", defaultSpan: 1, unique: false },
+  footer: { type: "footer", label: "כותרת תחתונה", defaultSpan: 2, unique: true },
 };
 
 /** Order shown in the "add block" menu. */
@@ -105,6 +107,7 @@ export const ADDABLE_BLOCKS: BlockType[] = [
   "text",
   "divider",
   "spacer",
+  "footer",
 ];
 
 export function defaultBlocks(docType: DocType): Block[] {
@@ -127,6 +130,7 @@ export function defaultBlocks(docType: DocType): Block[] {
       mk("totals", 2),
       mk("signature", 1, { signerName: "", align: "right", signatureAssetId: null }),
       mk("notes", 2),
+      mk("footer", 2, { body: "תודה על שיתוף הפעולה" }),
     ];
   }
 
@@ -140,6 +144,7 @@ export function defaultBlocks(docType: DocType): Block[] {
       mk("signature", 1, { sigMode: "client", title: "חתימת הלקוח", align: "right", signatureAssetId: null }),
       mk("signature", 1, { sigMode: "business", title: "חתימת נותן השירות", align: "left", signatureAssetId: null }),
       mk("notes", 2),
+      mk("footer", 2, { body: "תודה על שיתוף הפעולה" }),
     ];
   }
 
@@ -153,6 +158,7 @@ export function defaultBlocks(docType: DocType): Block[] {
   if (docType === "invoice") blocks.push(mk("payment", 2));
   blocks.push(mk("signature", 1, { signerName: "", align: "right", signatureAssetId: null }));
   blocks.push(mk("notes", 2));
+  blocks.push(mk("footer", 2, { body: "תודה על שיתוף הפעולה" }));
   return blocks;
 }
 
@@ -270,6 +276,7 @@ export type InvoiceDoc = {
   vatRate: number;
   pricesIncludeVat: boolean;
   vatExempt?: boolean; // עוסק פטור — no VAT line, total = net
+  showExemptNote?: boolean; // whether to print the "עוסק פטור" note (default: show)
   discountMode: DiscountMode;
   discountValue: number;
   accentColor: string;

@@ -51,6 +51,7 @@ export function BlockEditor({
   onSaveClient,
   onAddService,
   onSaveServices,
+  toast,
 }: {
   tokens: Tokens;
   doc: InvoiceDoc;
@@ -73,16 +74,21 @@ export function BlockEditor({
   onSaveClient: () => void;
   onAddService: (s: SavedService) => void;
   onSaveServices: () => void;
+  toast: (msg: string) => void;
 }) {
   const symbol = CURRENCY_SYMBOL[doc.currency];
   const rowPad = "12px 16px";
 
+  const savedLabel = block.type === "brand" ? "פרופיל עסק" : "פריסט";
   const header = supportsPreset(block.type) ? (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 12px 12px", borderBottom: `0.5px solid ${tokens.sep}` }}>
-      <ActionButton tokens={tokens} color={tokens.blue} onPress={onSavePreset} icon={<Save size={14} />} small full>שמור פריסט</ActionButton>
+      <div style={{ display: "flex", gap: 8 }}>
+        <ActionButton tokens={tokens} color={tokens.green} onPress={onSavePreset} icon={<Save size={14} />} small full>{`שמור ${savedLabel}`}</ActionButton>
+        <ActionButton tokens={tokens} color={tokens.blue} onPress={() => toast(presets.length ? `בחרו ${savedLabel} מהרשימה למטה` : `אין ${savedLabel} שמור — מלאו פרטים ולחצו “שמור”`)} small full>{`טען ${savedLabel}`}</ActionButton>
+      </div>
       {presets.length ? (
         <div>
-          <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: tokens.label3, margin: "2px 2px 7px" }}>פריסטים שמורים</p>
+          <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: tokens.label3, margin: "2px 2px 7px" }}>{block.type === "brand" ? "פרופילים שמורים" : "פריסטים שמורים"}</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {presets.map((p) => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", background: tokens.fill3, border: `1px solid ${tokens.sep}`, borderRadius: tokens.r10 }}>
@@ -231,7 +237,15 @@ export function BlockEditor({
               ]}
             />
             {doc.vatExempt ? (
-              <p style={{ fontSize: 12, color: tokens.label3, marginTop: 8, lineHeight: 1.5 }}>עוסק פטור — לא מתווסף מע״מ, והסך הכל נשאר.</p>
+              <>
+                <p style={{ fontSize: 12, color: tokens.label3, margin: "8px 0 6px", lineHeight: 1.5 }}>עוסק פטור — לא מתווסף מע״מ, והסך הכל נשאר.</p>
+                <button type="button" onClick={() => onDocChange({ showExemptNote: doc.showExemptNote === false })} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "8px 0", border: "none", background: "transparent", color: tokens.label1, fontFamily: "inherit", cursor: "pointer" }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>הצג הערת “עוסק פטור” במסמך</span>
+                  <span style={{ width: 46, height: 28, borderRadius: 999, background: doc.showExemptNote !== false ? tokens.green : tokens.fill2, position: "relative", flexShrink: 0 }}>
+                    <span style={{ position: "absolute", top: 3, insetInlineStart: doc.showExemptNote !== false ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "inset-inline-start .15s" }} />
+                  </span>
+                </button>
+              </>
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
                 <span style={{ fontSize: 14, fontWeight: 500, color: tokens.label1 }}>שיעור מע״מ</span>
@@ -382,6 +396,13 @@ export function BlockEditor({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: rowPad }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>גובה הרווח</span>
           <IOSInput tokens={tokens} value={block.height ?? 24} onChange={(v) => updateBlock({ height: v })} suf="px" />
+        </div>
+      );
+    case "footer":
+      return (
+        <div>
+          <TextField tokens={tokens} label="טקסט תחתון" value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder="תודה על שיתוף הפעולה" last />
+          <p style={{ fontSize: 11.5, color: tokens.label3, padding: "0 16px 12px", lineHeight: 1.5 }}>שם העסק יתווסף אוטומטית בסוף השורה.</p>
         </div>
       );
     case "divider":

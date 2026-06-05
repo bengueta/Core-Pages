@@ -36,6 +36,7 @@ import {
   Rows3,
   Minus,
   MoveVertical,
+  PanelBottom,
   PenLine,
   Plus,
   Receipt,
@@ -66,6 +67,7 @@ const ICONS: Record<BlockType, typeof FileText> = {
   text: Type,
   divider: Minus,
   spacer: MoveVertical,
+  footer: PanelBottom,
 };
 
 function CardInner({

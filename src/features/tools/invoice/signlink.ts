@@ -69,6 +69,7 @@ function compactDoc(doc: InvoiceDoc): Record<string, unknown> {
   if (doc.vatRate !== 18) o.vr = doc.vatRate;
   if (doc.pricesIncludeVat) o.iv = 1;
   if (doc.vatExempt) o.ex = 1;
+  if (doc.showExemptNote === false) o.nx = 1;
   if (doc.discountMode !== "none") {
     o.dm = doc.discountMode;
     o.dv = doc.discountValue;
@@ -106,6 +107,7 @@ function expandDoc(o: Record<string, unknown>): InvoiceDoc {
     vatRate: o.vr != null ? Number(o.vr) : 18,
     pricesIncludeVat: !!o.iv,
     vatExempt: !!o.ex,
+    showExemptNote: o.nx ? false : undefined,
     discountMode: (o.dm as InvoiceDoc["discountMode"]) ?? "none",
     discountValue: o.dv != null ? Number(o.dv) : 0,
     accentColor: o.ac ? String(o.ac) : "#8a6327",
