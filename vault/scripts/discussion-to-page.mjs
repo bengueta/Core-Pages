@@ -87,6 +87,7 @@ const slug = `${titleSlug || "page"}-${number}`; // discussion number = uniquene
 const page = {
   title: pageTitle,
   ...(typeof data.summary === "string" && data.summary.trim() ? { summary: data.summary.trim().slice(0, 300) } : {}),
+  ...(typeof data.heroImage === "string" && /^https?:\/\//i.test(data.heroImage.trim()) ? { heroImage: data.heroImage.trim() } : {}),
   slug,
   updated: new Date().toISOString().slice(0, 10),
   ...(author ? { author } : {}),
