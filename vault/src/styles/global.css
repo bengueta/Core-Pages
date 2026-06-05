@@ -39,6 +39,10 @@ a:hover {
   padding: 1rem clamp(1rem, 5vw, 1.75rem);
 }
 
+.vault-inner-wide {
+  max-width: 80rem;
+}
+
 .vault-header,
 .vault-footer {
   border-color: var(--vault-border);

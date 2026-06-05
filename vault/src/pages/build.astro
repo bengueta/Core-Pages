@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import BuilderApp from "../vault-engine/BuilderApp";
+import "../styles/blocks.css";
+
+const repoUrl = import.meta.env.PUBLIC_GITHUB_REPO_URL ?? "";
+---
+
+<BaseLayout
+  title="בניית עמוד · Vault"
+  description="בנו עמוד עם בלוקים, פלטות ואנימציות — ופרסמו דרך חשבון ה-GitHub שלכם."
+  wide
+>
+  <h1 style="margin: 0 0 0.5rem">בניית עמוד</h1>
+  <p class="vault-card-summary" style="margin: 0 0 1.5rem">
+    גררו בלוקים, עצבו, ולחצו <strong>פרסם</strong> — תיפתח דיון ב-GitHub עם העמוד מוכן;
+    אשרו שם והעמוד יעלה אוטומטית. בלי הרשמה נפרדת, בלי שרת.
+  </p>
+  <BuilderApp client:only="react" repoUrl={repoUrl} />
+</BaseLayout>
