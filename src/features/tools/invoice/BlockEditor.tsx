@@ -175,7 +175,11 @@ export function BlockEditor({
           </div>
           <TextField tokens={tokens} label="שם הלקוח" value={doc.clientName} onChange={(v) => onDocChange({ clientName: v })} placeholder="שם הלקוח / החברה" />
           <TextField tokens={tokens} label="ח.פ / ת.ז" value={doc.clientId} onChange={(v) => onDocChange({ clientId: v })} placeholder="מספר מזהה" dir="ltr" />
-          <TextField tokens={tokens} label="כתובת" value={doc.clientAddr} onChange={(v) => onDocChange({ clientAddr: v })} placeholder="רחוב, עיר" last />
+          <TextField tokens={tokens} label="כתובת" value={doc.clientAddr} onChange={(v) => onDocChange({ clientAddr: v })} placeholder="רחוב, עיר" />
+          <div style={{ padding: rowPad }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>יישור</label>
+            <SegmentedControl<BlockAlign> tokens={tokens} value={block.align ?? "right"} onChange={(v) => updateBlock({ align: v })} options={ALIGN_OPTS} />
+          </div>
         </div>
       );
     case "items":
@@ -214,24 +218,28 @@ export function BlockEditor({
               הוסף פריט
             </ActionButton>
           </div>
-        </div>
-      );
-    case "totals":
-      return (
-        <div>
-          <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>תמחור</label>
+          <div style={{ padding: rowPad, borderTop: `0.5px solid ${tokens.sep}` }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>מע״מ ותמחור</label>
             <SegmentedControl<string>
               tokens={tokens}
-              value={doc.pricesIncludeVat ? "incl" : "excl"}
-              onChange={(v) => onDocChange({ pricesIncludeVat: v === "incl" })}
+              value={doc.vatExempt ? "exempt" : doc.pricesIncludeVat ? "incl" : "excl"}
+              onChange={(v) => onDocChange({ pricesIncludeVat: v === "incl", vatExempt: v === "exempt" })}
               options={[
-                { value: "excl", label: "לא כולל מע״מ" },
+                { value: "excl", label: "+ מע״מ" },
                 { value: "incl", label: "כולל מע״מ" },
+                { value: "exempt", label: "פטור" },
               ]}
             />
+            {doc.vatExempt ? (
+              <p style={{ fontSize: 12, color: tokens.label3, marginTop: 8, lineHeight: 1.5 }}>עוסק פטור — לא מתווסף מע״מ, והסך הכל נשאר.</p>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: tokens.label1 }}>שיעור מע״מ</span>
+                <IOSInput tokens={tokens} value={doc.vatRate} onChange={(v) => onDocChange({ vatRate: v })} suf="%" />
+              </div>
+            )}
           </div>
-          <div style={{ padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
+          <div style={{ padding: rowPad, borderTop: `0.5px solid ${tokens.sep}` }}>
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: tokens.label3, marginBottom: 8 }}>הנחה</label>
             <SegmentedControl<DiscountMode>
               tokens={tokens}
@@ -249,11 +257,13 @@ export function BlockEditor({
               </div>
             ) : null}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: rowPad, borderBottom: `0.5px solid ${tokens.sep}` }}>
-            <span style={{ fontSize: 15, fontWeight: 500, color: tokens.label1 }}>מע״מ</span>
-            <IOSInput tokens={tokens} value={doc.vatRate} onChange={(v) => onDocChange({ vatRate: v })} suf="%" />
-          </div>
-          <button type="button" onClick={() => updateBlock({ amountInWords: !block.amountInWords })} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: rowPad, border: "none", background: "transparent", color: tokens.label1, fontFamily: "inherit", cursor: "pointer" }}>
+        </div>
+      );
+    case "totals":
+      return (
+        <div>
+          <p style={{ fontSize: 12.5, color: tokens.label3, padding: "12px 16px", lineHeight: 1.5 }}>מע״מ, הנחה ותמחור נערכים בבלוק “טבלת פריטים”. כאן מגדירים תצוגה:</p>
+          <button type="button" onClick={() => updateBlock({ amountInWords: !block.amountInWords })} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: rowPad, border: "none", borderTop: `0.5px solid ${tokens.sep}`, background: "transparent", color: tokens.label1, fontFamily: "inherit", cursor: "pointer" }}>
             <span style={{ fontSize: 15, fontWeight: 500 }}>הצג סכום במילים</span>
             <span style={{ width: 46, height: 28, borderRadius: 999, background: block.amountInWords ? tokens.green : tokens.fill2, position: "relative", transition: "background .15s" }}>
               <span style={{ position: "absolute", top: 3, insetInlineStart: block.amountInWords ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "inset-inline-start .15s" }} />
@@ -340,6 +350,20 @@ export function BlockEditor({
         <div>
           <TextField tokens={tokens} label="כותרת (לא חובה)" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="כותרת הרשימה" />
           <AreaField tokens={tokens} label="נקודות — כל שורה = נקודה" value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder={"שורה ראשונה\nשורה שנייה"} />
+        </div>
+      );
+    case "terms":
+      return (
+        <div>
+          <TextField tokens={tokens} label="כותרת (לא חובה)" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="תנאים והגדרות" />
+          <AreaField tokens={tokens} label="סעיפים — כל שורה ממוספרת אוטומטית" value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder={"סעיף ראשון\nסעיף שני"} />
+        </div>
+      );
+    case "keyvalue":
+      return (
+        <div>
+          <TextField tokens={tokens} label="כותרת (לא חובה)" value={block.title ?? ""} onChange={(v) => updateBlock({ title: v })} placeholder="פרטי הפרויקט" />
+          <AreaField tokens={tokens} label='שורות בפורמט "שם: ערך"' value={block.body ?? ""} onChange={(v) => updateBlock({ body: v })} placeholder={"תאריך התחלה: 01/07\nמשך: 30 ימים\nאחריות: שנה"} />
         </div>
       );
     case "text":

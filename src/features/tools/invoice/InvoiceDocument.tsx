@@ -86,15 +86,17 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
           ) : null}
         </div>
       );
-    case "client":
+    case "client": {
+      const ca = block.align ?? "right";
       return (
-        <div>
+        <div style={{ textAlign: ca === "center" ? "center" : ca === "left" ? "left" : "start" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.06em" }}>לכבוד</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: PAPER_INK, marginTop: 3 }}>{doc.clientName || "שם הלקוח"}</div>
           {doc.clientId ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>ח.פ / ת.ז: {doc.clientId}</div> : null}
           {doc.clientAddr ? <div style={{ fontSize: 12, color: PAPER_MUTED }}>{doc.clientAddr}</div> : null}
         </div>
       );
+    }
     case "items": {
       const cellHead: React.CSSProperties = { padding: "9px 12px", fontSize: 11.5, fontWeight: 700, color: onAccent, letterSpacing: "0.02em" };
       const cell: React.CSSProperties = { padding: "11px 12px", fontSize: 13, color: PAPER_INK, borderBottom: `1px solid ${PAPER_LINE}`, verticalAlign: "top" };
@@ -128,7 +130,9 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
           <div style={{ width: 280, maxWidth: "100%" }}>
             <TotalRow label="סכום ביניים" value={fmt(t.subtotal)} />
             {t.discount > 0 ? <TotalRow label="הנחה" value={`- ${fmt(t.discount)}`} /> : null}
-            {doc.pricesIncludeVat ? (
+            {doc.vatExempt ? (
+              <TotalRow label="עוסק פטור — לא חל מע״מ" value="" muted />
+            ) : doc.pricesIncludeVat ? (
               <TotalRow label={`כולל מע״מ ${doc.vatRate}%`} value={fmt(t.vat)} muted />
             ) : (
               <>
@@ -207,14 +211,55 @@ function renderBlock(block: Block, doc: InvoiceDoc, assets: LiveAsset[], accent:
     }
     case "bullets": {
       const lines = (block.body || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lines.length && !block.title) return null;
       return (
         <div>
           {block.title ? <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 6 }}>{block.title}</div> : null}
-          <ul style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-            {(lines.length ? lines : ["פריט ראשון", "פריט שני"]).map((l, i) => (
-              <li key={i} style={{ fontSize: 12.5, color: PAPER_INK, lineHeight: 1.6 }}>{l}</li>
+          {lines.length ? (
+            <ul style={{ margin: 0, paddingInlineStart: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+              {lines.map((l, i) => (
+                <li key={i} style={{ fontSize: 12.5, color: PAPER_INK, lineHeight: 1.6 }}>{l}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      );
+    }
+    case "terms": {
+      const lines = (block.body || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lines.length && !block.title) return null;
+      return (
+        <div>
+          {block.title ? <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 6 }}>{block.title}</div> : null}
+          <ol style={{ margin: 0, paddingInlineStart: 20, display: "flex", flexDirection: "column", gap: 5 }}>
+            {lines.map((l, i) => (
+              <li key={i} style={{ fontSize: 12.5, color: PAPER_INK, lineHeight: 1.65 }}>{l}</li>
             ))}
-          </ul>
+          </ol>
+        </div>
+      );
+    }
+    case "keyvalue": {
+      const rows = (block.body || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => {
+          const i = l.indexOf(":");
+          return i >= 0 ? [l.slice(0, i).trim(), l.slice(i + 1).trim()] : [l, ""];
+        });
+      if (!rows.length && !block.title) return null;
+      return (
+        <div>
+          {block.title ? <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 6 }}>{block.title}</div> : null}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {rows.map(([k, v], i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "6px 0", borderBottom: `1px solid ${PAPER_LINE}` }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: PAPER_INK }}>{k}</span>
+                <span style={{ fontSize: 12.5, color: PAPER_MUTED, textAlign: "end" }}>{v}</span>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }

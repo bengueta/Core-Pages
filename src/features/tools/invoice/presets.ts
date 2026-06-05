@@ -10,7 +10,7 @@ import type { Block, BlockSpan, BlockType, InvoiceDoc } from "./engine";
 export const PRESETS_KEY = "tool_invoice_block_presets";
 
 /** Block types where a named preset is genuinely useful (reusable content). */
-export const PRESET_TYPES: BlockType[] = ["text", "notes", "payment", "signature"];
+export const PRESET_TYPES: BlockType[] = ["text", "heading", "bullets", "terms", "keyvalue", "notes", "payment", "signature"];
 
 export type BlockPreset = { id: string; name: string; data: Record<string, unknown> };
 export type PresetStore = Partial<Record<BlockType, BlockPreset[]>>;
@@ -23,6 +23,10 @@ export function supportsPreset(type: BlockType): boolean {
 export function capturePreset(block: Block, doc: InvoiceDoc): Record<string, unknown> {
   switch (block.type) {
     case "text":
+    case "heading":
+    case "bullets":
+    case "terms":
+    case "keyvalue":
       return { title: block.title ?? "", body: block.body ?? "", align: block.align ?? "right", span: block.span };
     case "notes":
       return { notes: doc.notes };
@@ -46,6 +50,10 @@ export function capturePreset(block: Block, doc: InvoiceDoc): Record<string, unk
 export function applyPreset(type: BlockType, data: Record<string, unknown>): { blockPatch?: Partial<Block>; docPatch?: Partial<InvoiceDoc> } {
   switch (type) {
     case "text":
+    case "heading":
+    case "bullets":
+    case "terms":
+    case "keyvalue":
       return {
         blockPatch: {
           title: String(data.title ?? ""),

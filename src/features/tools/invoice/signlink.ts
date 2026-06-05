@@ -31,6 +31,7 @@ function compactBlock(b: Block): Record<string, unknown> {
   if (b.sigMode && b.sigMode !== "business") o.sm = b.sigMode;
   if (b.intent) o.in = b.intent;
   if (b.height && b.height !== 24) o.he = b.height;
+  if (b.amountInWords) o.aw = 1;
   return o;
 }
 
@@ -48,6 +49,7 @@ function expandBlock(o: Record<string, unknown>): Block {
     ...(o.sm ? { sigMode: o.sm as Block["sigMode"] } : {}),
     ...(o.in ? { intent: String(o.in) } : {}),
     ...(o.he ? { height: Number(o.he) } : {}),
+    ...(o.aw ? { amountInWords: true } : {}),
   };
 }
 
@@ -66,6 +68,7 @@ function compactDoc(doc: InvoiceDoc): Record<string, unknown> {
   if (doc.currency !== "ILS") o.cu = doc.currency;
   if (doc.vatRate !== 18) o.vr = doc.vatRate;
   if (doc.pricesIncludeVat) o.iv = 1;
+  if (doc.vatExempt) o.ex = 1;
   if (doc.discountMode !== "none") {
     o.dm = doc.discountMode;
     o.dv = doc.discountValue;
@@ -102,6 +105,7 @@ function expandDoc(o: Record<string, unknown>): InvoiceDoc {
     currency: (o.cu as InvoiceDoc["currency"]) ?? "ILS",
     vatRate: o.vr != null ? Number(o.vr) : 18,
     pricesIncludeVat: !!o.iv,
+    vatExempt: !!o.ex,
     discountMode: (o.dm as InvoiceDoc["discountMode"]) ?? "none",
     discountValue: o.dv != null ? Number(o.dv) : 0,
     accentColor: o.ac ? String(o.ac) : "#8a6327",

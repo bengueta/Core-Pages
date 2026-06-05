@@ -33,6 +33,8 @@ export type BlockType =
   | "notes"
   | "heading"
   | "bullets"
+  | "terms"
+  | "keyvalue"
   | "text"
   | "divider"
   | "spacer";
@@ -79,6 +81,8 @@ export const BLOCK_META: Record<BlockType, BlockMeta> = {
   notes: { type: "notes", label: "הערות ותנאים", defaultSpan: 2, unique: true },
   heading: { type: "heading", label: "כותרת מקטע", defaultSpan: 2, unique: false },
   bullets: { type: "bullets", label: "רשימת נקודות", defaultSpan: 2, unique: false },
+  terms: { type: "terms", label: "סעיפים ממוספרים", defaultSpan: 2, unique: false },
+  keyvalue: { type: "keyvalue", label: "טבלת מפרט", defaultSpan: 2, unique: false },
   text: { type: "text", label: "טקסט חופשי", defaultSpan: 2, unique: false },
   divider: { type: "divider", label: "קו מפריד", defaultSpan: 2, unique: false },
   spacer: { type: "spacer", label: "רווח", defaultSpan: 1, unique: false },
@@ -96,6 +100,8 @@ export const ADDABLE_BLOCKS: BlockType[] = [
   "notes",
   "heading",
   "bullets",
+  "terms",
+  "keyvalue",
   "text",
   "divider",
   "spacer",
@@ -130,7 +136,7 @@ export function defaultBlocks(docType: DocType): Block[] {
       mk("meta", 1),
       mk("client", 2),
       mk("text", 2, { title: "מבוא", body: "הסכם זה נערך ונחתם בין הצדדים, וקובע את תנאי ההתקשרות ביניהם." }),
-      mk("text", 2, { title: "תנאי ההתקשרות", body: "1. היקף העבודה: …\n2. לוח זמנים: …\n3. תמורה ותנאי תשלום: …" }),
+      mk("terms", 2, { title: "תנאי ההתקשרות", body: "היקף העבודה: …\nלוח זמנים: …\nתמורה ותנאי תשלום: …" }),
       mk("signature", 1, { sigMode: "client", title: "חתימת הלקוח", align: "right", signatureAssetId: null }),
       mk("signature", 1, { sigMode: "business", title: "חתימת נותן השירות", align: "left", signatureAssetId: null }),
       mk("notes", 2),
@@ -263,6 +269,7 @@ export type InvoiceDoc = {
   currency: Currency;
   vatRate: number;
   pricesIncludeVat: boolean;
+  vatExempt?: boolean; // עוסק פטור — no VAT line, total = net
   discountMode: DiscountMode;
   discountValue: number;
   accentColor: string;
@@ -332,6 +339,10 @@ export function calcTotals(doc: InvoiceDoc): InvoiceTotals {
   else if (doc.discountMode === "amount") discount = clamp(doc.discountValue, 0, rawSum);
 
   const afterDiscount = rawSum - discount;
+
+  if (doc.vatExempt) {
+    return { subtotal: rawSum, discount, net: afterDiscount, vat: 0, total: afterDiscount };
+  }
 
   if (doc.pricesIncludeVat) {
     const net = rate > 0 ? afterDiscount / (1 + rate) : afterDiscount;
