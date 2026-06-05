@@ -6,6 +6,26 @@ export type PaletteRole = "heading" | "body" | "accent" | "buttonBg" | "buttonTe
 
 export type Palette = Partial<Record<PaletteRole, ColorKey>>;
 
+/** Color choices shown in the palette editor (value + Hebrew label). */
+export const COLOR_OPTIONS: { value: ColorKey; label: string }[] = [
+  { value: "white", label: "לבן" },
+  { value: "default", label: "כתום (מותג)" },
+  { value: "neutral", label: "אפור" },
+  { value: "blue", label: "כחול" },
+  { value: "green", label: "ירוק" },
+  { value: "amber", label: "צהוב" },
+  { value: "emerald", label: "טורקיז" },
+];
+
+/** Roles a palette assigns colors to. */
+export const PALETTE_ROLES: { role: PaletteRole; label: string }[] = [
+  { role: "heading", label: "כותרת" },
+  { role: "body", label: "טקסט גוף" },
+  { role: "accent", label: "הדגשה" },
+  { role: "buttonBg", label: "רקע כפתור" },
+  { role: "buttonText", label: "טקסט כפתור" },
+];
+
 export const COLOR_HEX: Record<string, string> = {
   default: "#fb923c",
   white:   "#ffffff",
