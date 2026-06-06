@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Palette, FileText } from "lucide-react";
+import { Calculator, Palette, FileText, Library } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { TOOL_ROUTES } from "@/lib/routes/tools";
@@ -66,6 +66,12 @@ const CARDS = [
     title: "הצעת מחיר / חשבונית",
     description: "מחולל הצעות מחיר וחשבוניות מעוצבות עם פריטים, הנחה ומע״מ והדפסה ל-PDF.",
     icon: FileText,
+  },
+  {
+    id: "vault",
+    title: "THE VAULT",
+    description: "מערכת תוכן וקהילה: בונים עמודים מעוצבים עם בלוקים, מפרסמים דרך GitHub, ומשתתפים בפורום.",
+    icon: Library,
   },
 ] as const;
 
@@ -173,7 +179,7 @@ export default function ToolsPageContent() {
         </motion.header>
 
         {/* 3 Cards – Glass Effect */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {CARDS.map((card, idx) => (
             <motion.article
               key={card.id}
@@ -209,6 +215,14 @@ export default function ToolsPageContent() {
                 >
                   <span className="sr-only">פתח מחולל הצעת מחיר וחשבונית</span>
                 </Link>
+              ) : card.id === "vault" ? (
+                <a
+                  href="/Core-Pages/vault/"
+                  aria-label="פתח את THE VAULT"
+                  className="absolute inset-0 z-20"
+                >
+                  <span className="sr-only">פתח את THE VAULT</span>
+                </a>
               ) : null}
               {/* Glass overlay – inner highlight */}
               <div
