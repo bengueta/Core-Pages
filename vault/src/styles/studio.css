@@ -1,0 +1,12 @@
+/*
+ * Vault Studio (/build/, /build/preview/) — Tailwind for the React builder shell.
+ * Explicit @source so utilities are always generated for vault-engine in dev + prod.
+ * Preflight omitted so forum/article BaseLayout stays untouched.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@plugin "@tailwindcss/typography";
+
+@source "../vault-engine/**/*.{tsx,ts}";
+@source "../pages/build/**/*.astro";

@@ -10,7 +10,7 @@ const repoUrl = import.meta.env.PUBLIC_GITHUB_REPO_URL ?? "";
 
 <StudioLayout title="בניית עמוד · Vault Studio">
   <StudioApp
-    client:only="react"
+    client:load
     previewSrc={`${baseHref}build/preview/`}
     repoUrl={repoUrl}
     homeHref={baseHref}

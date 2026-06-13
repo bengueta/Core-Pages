@@ -8,6 +8,8 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @plugin "@tailwindcss/typography";
 
+@source "../vault-engine/**/*.{tsx,ts}";
+
 /* Palette class map — applies inside each block's [data-palette] wrapper */
 [data-palette] .palette-heading { color: var(--palette-heading); }
 [data-palette] .palette-body { color: var(--palette-body); }
