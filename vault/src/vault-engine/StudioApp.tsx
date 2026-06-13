@@ -151,25 +151,26 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
 
   return (
     <div className="h-screen flex flex-col bg-neutral-950 text-white" dir="rtl">
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-neutral-800 bg-neutral-900/80">
-        <a href={homeHref} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+      <div className="studio-topbar shrink-0 flex items-center justify-between gap-4 px-4 py-3">
+        <a href={homeHref} className="studio-back-link inline-flex items-center gap-2 text-sm transition-colors">
           <ArrowRight className="w-4 h-4" /> חזרה ל-Vault
         </a>
+        <span className="studio-brand hidden sm:block text-sm font-semibold">Vault Studio</span>
         <div className="flex items-center gap-2">
           {status && <span className="text-xs text-green-400">{status}</span>}
-          <button onClick={saveDraft} className="px-4 py-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition-colors text-sm">שמור טיוטה</button>
-          <button onClick={publish} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 transition-colors text-sm font-semibold">
+          <button onClick={saveDraft} className="studio-btn-secondary px-4 py-2 rounded-lg transition-colors text-sm">שמור טיוטה</button>
+          <button onClick={publish} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 transition-colors text-sm font-semibold shadow-[0_0_0_1px_rgba(249,115,22,0.35)]">
             <Send className="w-4 h-4" /> פרסם דרך GitHub
           </button>
         </div>
       </div>
 
       <div className="flex-1 flex min-h-0">
-        <div className="w-[420px] shrink-0 flex flex-col border-l border-neutral-800 overflow-hidden">
+        <div className="studio-sidebar w-[420px] shrink-0 flex flex-col overflow-hidden">
           <div className="flex-1 flex flex-col min-h-0">
             {isExclusiveView ? (
               <div className="flex-1 overflow-y-auto p-4">
-                <button onClick={handleBackToBlocks} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-4">
+                <button onClick={handleBackToBlocks} className="studio-back-link inline-flex items-center gap-2 text-sm transition-colors mb-4">
                   <ArrowLeft className="w-4 h-4" /> חזרה לכל הבלוקים
                 </button>
                 <BlockEditor block={blocks[selectedBlockIndex!]} index={selectedBlockIndex!} palettes={palettes} paletteDisplayNames={paletteDisplayNames}
@@ -177,10 +178,10 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
               </div>
             ) : (
               <>
-                <div className="shrink-0 flex border-b border-neutral-800">
+                <div className="studio-tabs shrink-0 flex">
                   {tabs.map((tab) => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-sm transition-colors ${activeTab === tab.id ? "text-orange-400 border-b-2 border-orange-500 bg-neutral-900/50" : "text-gray-500 hover:text-gray-300 hover:bg-neutral-800/50"}`}>
+                      className={`studio-tab flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-sm transition-colors ${activeTab === tab.id ? "studio-tab--active" : ""}`}>
                       {tab.icon}{tab.label}
                     </button>
                   ))}
@@ -190,19 +191,19 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
                   {activeTab === "info" && (
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">כותרת *</label>
+                        <label className="studio-field-label block text-xs font-medium mb-1">כותרת *</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                          className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:border-orange-500 focus:outline-hidden" dir="rtl" />
+                          className="studio-field w-full rounded px-3 py-2 text-sm placeholder:text-gray-600" dir="rtl" />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">תקציר *</label>
+                        <label className="studio-field-label block text-xs font-medium mb-1">תקציר *</label>
                         <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={2}
-                          className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:border-orange-500 focus:outline-hidden resize-none" dir="rtl" />
+                          className="studio-field w-full rounded px-3 py-2 text-sm placeholder:text-gray-600 resize-none" dir="rtl" />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">תמונת כרטיס (קישור URL)</label>
+                        <label className="studio-field-label block text-xs font-medium mb-1">תמונת כרטיס (קישור URL)</label>
                         <input type="url" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="https://…/cover.jpg"
-                          className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:border-orange-500 focus:outline-hidden" dir="ltr" />
+                          className="studio-field w-full rounded px-3 py-2 text-sm placeholder:text-gray-600" dir="ltr" />
                       </div>
                       <p className="text-xs text-gray-600 pt-2">המזהה (slug) ייווצר אוטומטית בעת הפרסום.</p>
                     </div>
@@ -212,7 +213,7 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
                     <div className="space-y-6">
                       {getBlocksByGroup().map(({ group, types }) => (
                         <div key={group}>
-                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 pb-1 border-b border-neutral-700">{group}</h3>
+                          <h3 className="studio-group-title text-xs font-semibold uppercase tracking-wide mb-3 pb-1">{group}</h3>
                           <div className="grid grid-cols-2 gap-3">
                             {types.map((type) => {
                               const config = getBlockConfigByType(type);
@@ -220,8 +221,8 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
                               const IconComponent = getBlockConfigIcon(config.icon);
                               return (
                                 <button key={type} type="button" onClick={() => handleAddBlock(type)}
-                                  className="flex flex-col items-center gap-2 p-4 rounded-lg border border-neutral-700 bg-neutral-800/50 hover:bg-neutral-800 hover:border-orange-500/50 transition-all">
-                                  <div className="w-12 h-12 flex items-center justify-center rounded-lg border border-neutral-600 bg-neutral-800 text-orange-400">
+                                  className="studio-block-card flex flex-col items-center gap-2 p-4 rounded-lg transition-all">
+                                  <div className="studio-block-icon w-12 h-12 flex items-center justify-center rounded-lg">
                                     <IconComponent className="w-6 h-6" />
                                   </div>
                                   <span className="text-xs font-medium text-white text-center leading-tight">{config.label}</span>
@@ -257,8 +258,8 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0 bg-neutral-900/30">
-          <div className="shrink-0 flex items-center justify-center gap-2 py-2 border-b border-neutral-800">
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="studio-preview-bar shrink-0 flex items-center justify-center gap-2 py-2">
             {(["mobile", "tablet", "desktop"] as DevicePreset[]).map((d) => {
               const Icon = d === "mobile" ? Smartphone : d === "tablet" ? Tablet : Monitor;
               const label = d === "mobile" ? "מובייל" : d === "tablet" ? "טאבלט" : "דסקטופ";
@@ -270,7 +271,7 @@ export default function StudioApp({ previewSrc, repoUrl = "", homeHref }: Studio
               );
             })}
           </div>
-          <div className="flex-1 flex items-start justify-center overflow-auto p-4 bg-neutral-950/50">
+          <div className="studio-preview-stage flex-1 flex items-start justify-center overflow-auto p-4">
             <div className="bg-neutral-950 rounded-lg overflow-hidden shadow-2xl transition-all duration-200"
               style={{ width: DEVICE_WIDTHS[device], maxWidth: "100%", minHeight: "500px" }}>
               <iframe ref={iframeRef} src={previewSrc} title="תצוגה מקדימה" className="w-full h-full border-0 rounded-lg"

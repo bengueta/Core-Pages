@@ -10,3 +10,112 @@
 
 @source "../vault-engine/**/*.{tsx,ts}";
 @source "../pages/build/**/*.astro";
+
+/* Vault-branded chrome — uses --vault-* from global.css (same tokens as public site). */
+@layer components {
+  .studio-topbar {
+    border-bottom: 1px solid color-mix(in srgb, var(--vault-accent) 28%, var(--vault-border));
+    background:
+      radial-gradient(circle at 100% -50%, rgba(249, 115, 22, 0.24), transparent 58%),
+      radial-gradient(circle at 0% 130%, rgba(249, 115, 22, 0.1), transparent 48%),
+      var(--vault-panel);
+  }
+
+  .studio-brand {
+    color: color-mix(in srgb, var(--vault-accent) 88%, white);
+    letter-spacing: 0.04em;
+  }
+
+  .studio-back-link {
+    color: color-mix(in srgb, var(--vault-accent) 65%, var(--vault-muted));
+  }
+
+  .studio-back-link:hover {
+    color: #fff;
+  }
+
+  .studio-btn-secondary {
+    border: 1px solid var(--vault-border);
+    background: color-mix(in srgb, var(--vault-panel) 88%, black);
+    color: var(--vault-text);
+  }
+
+  .studio-btn-secondary:hover {
+    border-color: color-mix(in srgb, var(--vault-accent) 40%, var(--vault-border));
+    background: var(--vault-panel);
+  }
+
+  .studio-sidebar {
+    border-left: 1px solid var(--vault-border);
+    background:
+      radial-gradient(circle at 50% -10%, rgba(249, 115, 22, 0.14), transparent 52%),
+      var(--vault-panel);
+  }
+
+  .studio-tabs {
+    border-bottom: 1px solid color-mix(in srgb, var(--vault-accent) 18%, var(--vault-border));
+    background: color-mix(in srgb, var(--vault-panel) 94%, black);
+  }
+
+  .studio-tab {
+    color: var(--vault-muted);
+  }
+
+  .studio-tab:hover {
+    color: #fdba74;
+    background: rgba(249, 115, 22, 0.07);
+  }
+
+  .studio-tab--active {
+    color: #fb923c;
+    border-bottom: 2px solid var(--vault-accent);
+    background: rgba(249, 115, 22, 0.14);
+  }
+
+  .studio-group-title {
+    color: color-mix(in srgb, var(--vault-accent) 78%, white);
+    border-bottom: 1px solid color-mix(in srgb, var(--vault-accent) 28%, var(--vault-border));
+  }
+
+  .studio-block-card {
+    border: 1px solid var(--vault-border);
+    background: color-mix(in srgb, var(--vault-panel) 82%, black);
+  }
+
+  .studio-block-card:hover {
+    border-color: color-mix(in srgb, var(--vault-accent) 48%, var(--vault-border));
+    background: color-mix(in srgb, var(--vault-panel) 92%, rgba(249, 115, 22, 0.18));
+  }
+
+  .studio-block-icon {
+    border: 1px solid color-mix(in srgb, var(--vault-accent) 38%, var(--vault-border));
+    background: rgba(249, 115, 22, 0.14);
+    color: var(--vault-accent);
+  }
+
+  .studio-preview-bar {
+    border-bottom: 1px solid color-mix(in srgb, var(--vault-accent) 22%, var(--vault-border));
+    background: color-mix(in srgb, var(--vault-panel) 86%, black);
+  }
+
+  .studio-preview-stage {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(249, 115, 22, 0.08), transparent 42%),
+      var(--vault-bg);
+  }
+
+  .studio-field {
+    border: 1px solid var(--vault-border);
+    background: color-mix(in srgb, var(--vault-panel) 75%, black);
+    color: var(--vault-text);
+  }
+
+  .studio-field:focus {
+    border-color: var(--vault-accent);
+    outline: none;
+  }
+
+  .studio-field-label {
+    color: color-mix(in srgb, var(--vault-accent) 45%, var(--vault-muted));
+  }
+}
