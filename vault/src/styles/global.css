@@ -23,13 +23,22 @@ body.vault-body {
   line-height: 1.65;
 }
 
-a {
+/* Scoped to public vault pages — unlayered rules beat Tailwind utilities and broke /build/ links. */
+.vault-main a:not([class*="rounded"]):not(.vault-btn),
+.vault-header a,
+.vault-footer a,
+.vault-card,
+article.vault-mdx-prose a {
   color: var(--vault-accent);
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
 }
 
-a:hover {
+.vault-main a:not([class*="rounded"]):not(.vault-btn):hover,
+.vault-header a:hover,
+.vault-footer a:hover,
+.vault-card:hover,
+article.vault-mdx-prose a:hover {
   text-decoration-thickness: 2px;
 }
 

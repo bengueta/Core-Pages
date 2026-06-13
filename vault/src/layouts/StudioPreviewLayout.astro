@@ -1,13 +1,13 @@
 ---
 /**
- * Full-screen, chrome-less layout for the builder studio and its preview iframe.
- * No site header/footer — the studio brings its own toolbar.
+ * Preview iframe only — includes block Tailwind utilities for BlockRenderer.
  */
 import "../styles/global.css";
 import "../styles/studio.css";
+import "../styles/blocks.css";
 
 type Props = { title?: string };
-const { title = "Vault Studio" } = Astro.props;
+const { title = "Vault Studio Preview" } = Astro.props;
 ---
 
 <!doctype html>
