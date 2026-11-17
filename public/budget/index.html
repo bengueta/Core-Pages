@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>תקציב שבועי</title>
+<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1218" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="תקציב">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;500;700&display=swap">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* standalone: no design-references tab */
+#box-g>.tabs.sub,#set-ref-box{display:none!important}
+</style>
+<style>
+/* Layout: a two-week timeline that slides under a fixed glowing "now", one big monthly total, the weekly question, a credit card and a banknote side by side (the selected one opens its lines), then the lines. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#131a26; --muted:#5d6878; --line:#dfe4ec;
+  --accent:#1f4fbf; --accent-soft:#e6ecfa; --on-accent:#ffffff; --danger:#b3261e; --glow:#ff9d2e; --tick:#7c8798;
+  --card-a:#18233a; --card-b:#2b3f6b; --card-ink:#f2f5fb;
+  --cash-a:#1f6b4f; --cash-b:#2f7d5f; --cash-ink:#f1faf5;
+  --display:"Frank Ruhl Libre","David","Times New Roman",serif;
+  --body:"Heebo",-apple-system,"Segoe UI",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1218; --surface:#171d27; --ink:#eef1f6; --muted:#9aa5b5; --line:#2a3342;
+  --accent:#8fb0ff; --accent-soft:#1d2a47; --on-accent:#0e1218; --danger:#ff8a80; --glow:#ffb14d; --tick:#7c8798;
+  --card-a:#1c2942; --card-b:#34497a; --card-ink:#f2f5fb;
+  --cash-a:#1b5a43; --cash-b:#2f7d5f; --cash-ink:#f1faf5; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1218; --surface:#171d27; --ink:#eef1f6; --muted:#9aa5b5; --line:#2a3342;
+  --accent:#8fb0ff; --accent-soft:#1d2a47; --on-accent:#0e1218; --danger:#ff8a80; --glow:#ffb14d; --tick:#7c8798;
+  --card-a:#1c2942; --card-b:#34497a; --card-ink:#f2f5fb;
+  --cash-a:#1b5a43; --cash-b:#2f7d5f; --cash-ink:#f1faf5; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;
+  padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:560px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+.side,.content{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (min-width:900px){
+  main{max-width:1000px;display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:40px;align-items:start}
+  .side{position:sticky;top:16px}
+}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.n{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+/* icons: Lucide (lucide.dev), ISC licence; parts derived from Feather, MIT */
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* timeline: a tape that slides under a fixed needle; "now" is the glowing head of the needle */
+.wk{text-align:center}
+.ruler{position:relative;height:108px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent)}
+.ruler::before{content:"";position:absolute;inset-inline:0;top:58px;height:46px;background:var(--surface);border-block:1px solid var(--line)}
+.track{position:absolute;top:0;right:50%;width:150%;height:100%;display:flex}
+.cell{position:relative;flex:1 0 0;min-width:0;height:100%;color:var(--ink)}
+.cell::before{content:"";position:absolute;inset-inline-start:calc(50% - .5px);top:59px;width:1px;height:6px;background:var(--tick)}
+.cell::after{content:"";position:absolute;inset-inline-start:-1px;top:59px;width:2px;height:12px;background:var(--muted);border-radius:0 0 1px 1px}
+.cell .d{position:absolute;inset-inline:0;top:82px;text-align:center;font-weight:500;font-size:13px;line-height:1}
+.cell.past{color:var(--muted)}
+.cell.past::after{background:var(--tick)}
+.cell.now .d{font-weight:700;font-size:15px;top:81px;color:var(--ink)}
+.cell.sh .d{font-weight:700}
+.cell.sh .d::before{content:"";position:absolute;inset-inline-start:calc(50% - 1px);top:-23px;width:2px;height:18px;border-radius:0 0 1px 1px;background:currentColor}
+.cell.sh::before{display:none}
+.cell .p{position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center;color:var(--muted);font-family:var(--display);line-height:1.05}
+.cell .p small{display:none;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:.06em}
+.cell .p b{display:block;font-size:15px;font-weight:700}
+.cell.cur .p{top:0;color:var(--ink)}
+.cell.cur .p small{display:block}
+.cell.cur .p b{font-size:24px;font-weight:900}
+.needle{position:absolute;left:50%;top:52px;width:2px;height:26px;margin-left:-1px;border-radius:1px;background:var(--ink)}
+.ball{position:absolute;left:50%;top:52px;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--glow);
+  box-shadow:0 0 0 2px var(--ink),0 0 12px 3px var(--glow)}
+.ball::after{content:"";position:absolute;inset:-4px;border-radius:50%;background:var(--glow);opacity:0}
+.wk .dates{font-size:13px;color:var(--muted)}
+@keyframes pulse{from{transform:scale(.6);opacity:.5}to{transform:scale(2.4);opacity:0}}
+@keyframes rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:no-preference){
+  .ball::after{animation:pulse 2.4s ease-out 2}
+  .track.go,.track.go .p{transition:transform .6s cubic-bezier(.05,.7,.1,1),opacity .2s}
+  @supports (transition-timing-function:linear(0,1)){.track.go,.track.go .p{transition-timing-function:linear(0, 0.143, 0.394, 0.617, 0.779, 0.882, 0.942, 0.975, 0.991, 0.998, 1.001, 1.002, 1.001, 1.001, 1.001, 1, 1),ease}}
+  .pick .in{transition:transform .3s cubic-bezier(.2,0,0,1)}
+  @keyframes sweep{from{transform:translateX(70%);opacity:1}to{transform:translateX(-70%);opacity:0}}
+  @keyframes pickup{from{transform:rotateX(16deg) translateY(8px)}}
+  .pick[aria-pressed="true"] .shine{animation:sweep .7s .1s cubic-bezier(.2,0,0,1) both}
+  .pick[aria-pressed="true"] .tl{animation:pickup .45s cubic-bezier(.2,.9,.3,1.25)}
+  .pick:active .in{transform:scale(.97)}
+  .cbar i{transition:transform .6s cubic-bezier(.05,.7,.1,1)}
+  .swap>*{animation:rise .3s cubic-bezier(.05,.7,.1,1) both}
+  .swap>*:nth-child(2){animation-delay:.04s}.swap>*:nth-child(3){animation-delay:.08s}.swap>*:nth-child(4){animation-delay:.12s}.swap>*:nth-child(n+5){animation-delay:.16s}
+  .ask,.lamp,.chip,.link,.add,.tabs button,.btn{transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s,transform .1s}
+  .lamp svg{transition:opacity .2s,transform .2s}
+  .btn:active,.chip:active{transform:scale(.97)}
+}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr) 48px;background:var(--line);border-radius:12px;padding:4px;gap:4px}
+.neg{color:var(--danger)}
+.ybox{display:flex;flex-direction:column;gap:16px}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-block:8px 4px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:520px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.tile .lab{font-size:13px;color:var(--muted)}
+.tile .v{font-size:20px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;unicode-bidi:plaintext;text-align:right}
+.tile .s{font-size:13px;color:var(--muted)}
+.scroll{overflow-x:auto}
+.ytab{width:100%;border-collapse:collapse;font-size:15px}
+.ytab th{font-weight:500;color:var(--muted);font-size:13px}
+.ytab th,.ytab td{padding:10px 8px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap}
+.ytab td.n,.ytab th.n{text-align:left;font-variant-numeric:tabular-nums}
+.ytab tr:last-child td{border-bottom:0}
+.ytab tr.cur td{background:var(--accent-soft);font-weight:700}
+.ytab small{display:block;font-size:13px;color:var(--muted);font-weight:400}
+.cap{font-size:13px;color:var(--muted);text-align:center}
+.tabs button{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:8px;font-weight:500;color:var(--muted);font-size:15px;padding-inline:4px}
+.tabs.sub{grid-template-columns:repeat(2,1fr)}
+.refhost>div{padding:12px}
+.imp{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.imp .hd{padding:16px 16px 0;display:flex;gap:8px;align-items:baseline}
+.imp .num{font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.imp h3{margin:0;font-size:16px;font-weight:700;flex:1;min-width:0}
+.imp .ver{font-size:13px;color:var(--muted);white-space:nowrap}
+.imp .why{padding:4px 16px 0;margin:0;font-size:15px;color:var(--muted)}
+.imp .src{padding:4px 16px 0;margin:0;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.imp .src a{color:var(--accent);text-underline-offset:2px}
+.imp .reply{margin:8px 16px 0;padding:8px 12px;border-radius:8px;background:var(--accent-soft);font-size:13px}
+.imp .refhost{margin:12px 12px 0}
+.vote{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:8px;padding:12px}
+.vote button{min-height:44px;border-radius:10px;border:1.5px solid var(--tick);font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;padding-inline:4px}
+.vote button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.vote button:disabled{opacity:.45;cursor:default}
+.cmt{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+.cmt label{font-size:13px;color:var(--muted)}
+.cmt textarea{font:inherit;font-size:16px;min-height:88px;border:1px solid var(--tick);border-radius:10px;background:var(--bg);color:var(--ink);padding:10px 12px;resize:vertical;width:100%}
+.cmt .rowb{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.savebtn{min-height:44px;padding-inline:20px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-weight:700}
+.savebtn:disabled{opacity:.45;cursor:default}
+.said{padding:0 16px 12px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.said:empty{display:none}
+.sendbar{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;text-align:center}
+.sendbar .savebtn{width:100%;min-height:48px}
+.refhost{border:1px dashed var(--tick);border-radius:16px;overflow:hidden;background:var(--bg);min-height:120px}
+.refhost:empty::after{content:"עוד אין כאן רפרנס.";display:block;padding:32px 16px;text-align:center;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:700}
+.tabs button[aria-selected="true"]::after{content:"";position:absolute;inset-inline-start:calc(50% - 10px);bottom:4px;width:20px;height:3px;border-radius:2px;background:var(--accent)}
+
+/* one big total */
+.total{text-align:center}
+.total .lab{font-size:15px;color:var(--muted)}
+.total .big{font-size:52px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.total .sub{font-size:13px;color:var(--muted)}
+
+/* weekly question: lit while it waits for an answer, off once answered */
+.ask{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.ask{--fg:var(--ink);--bd:var(--tick)}
+.ask.on{--fg:var(--on-accent);--bd:var(--on-accent)}
+.ask .head{display:flex;align-items:center;gap:12px}
+.lamp{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--tick)}
+.lamp svg{width:20px;height:20px;opacity:0;transform:scale(.6)}
+.ask[data-state="took"] .lamp{box-shadow:none}
+.ask[data-state="took"] .lamp svg{opacity:1;transform:none}
+.ask .lab{font-size:15px;color:var(--muted)}
+.ask .big{font-size:32px;font-weight:700;line-height:1.1;letter-spacing:-.02em;text-align:right}
+.ask .sub{font-size:13px;color:var(--muted)}
+.ask.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ask.on .lab,.ask.on .sub{color:inherit;opacity:.9}
+.ask.on .lamp{background:var(--glow);transform:scale(.7);box-shadow:0 0 0 3px var(--on-accent),0 0 14px 5px var(--glow)}
+.ask.on :focus-visible{outline-color:var(--on-accent)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{min-height:48px;border-radius:12px;font-weight:700;padding-inline:12px}
+.btn.solid{background:var(--accent);color:var(--on-accent)}
+.ask.on .btn.solid{background:var(--on-accent);color:var(--accent)}
+.btn.ghost{border:1.5px solid var(--bd,var(--line));color:var(--fg,var(--ink))}
+.btn:disabled{opacity:.5;cursor:default}
+.part{display:flex;gap:8px;align-items:center;font-size:15px}
+.part input{width:88px;font-size:16px;min-height:44px;border-radius:10px;border:1.5px solid var(--bd);background:transparent;color:var(--fg);padding:4px 10px;direction:ltr;text-align:center;font-weight:700}
+.part input::placeholder{color:var(--fg);opacity:.8}
+.part .btn{min-height:44px;font-weight:500}
+.last{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;justify-content:space-between;min-height:44px;margin-block:-12px -8px;padding-inline:4px}
+.last button{color:var(--accent);min-height:44px;padding-inline:8px}
+
+/* the wallet: a credit card and a banknote, both always in sight; the selected one decides which list is open */
+.wallet{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.obj{position:relative;min-width:0}
+.pick{display:block;width:100%;text-align:right;perspective:700px;border-radius:12px}
+.pick .in{position:relative;display:block;transform:scale(.95);transform-origin:50% 100%}
+.pick[aria-pressed="true"] .in{transform:none}
+.pick .tl{position:relative;display:flex;flex-direction:column;justify-content:space-between;height:112px;padding:12px;overflow:hidden;--ring:0 0 0 0 transparent,0 0 0 0 transparent}
+.pick[aria-pressed="true"] .tl{--ring:0 0 0 2px var(--bg),0 0 0 4px var(--ink)}
+.pick .top{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.pick .amt2{display:block;font-size:20px;font-weight:700;line-height:1.1;letter-spacing:.02em}
+.pick .bot{display:flex;justify-content:space-between;align-items:baseline;gap:4px;font-size:13px;white-space:nowrap}
+.pick .lg{display:none}
+.shine{position:absolute;inset:-20% -60%;pointer-events:none;opacity:0;transform:translateX(70%)}
+.cc .tl{border-radius:12px;color:var(--card-ink);background:
+  radial-gradient(120% 90% at 0% 0%,color-mix(in srgb,var(--card-ink) 20%,transparent),transparent 55%),
+  repeating-linear-gradient(115deg,color-mix(in srgb,var(--card-ink) 5%,transparent) 0 1px,transparent 1px 7px),
+  linear-gradient(225deg,var(--card-a),var(--card-b));
+  box-shadow:var(--ring),inset 0 0 0 1px color-mix(in srgb,var(--card-ink) 16%,transparent),0 12px 22px -14px var(--card-a)}
+.cc .shine{background:linear-gradient(105deg,transparent 42%,color-mix(in srgb,var(--card-ink) 28%,transparent) 50%,transparent 58%)}
+.emv{flex:none;width:30px;height:22px}
+.emv path{fill:none;stroke:var(--card-a);stroke-width:1;opacity:.55}
+.wave{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;opacity:.8}
+.cc .amt2{text-shadow:0 1px 1px var(--card-a),0 -1px 0 color-mix(in srgb,var(--card-ink) 40%,transparent)}
+.cbar{display:block;height:3px;border-radius:2px;margin-top:4px;background:color-mix(in srgb,var(--card-ink) 26%,transparent);overflow:hidden}
+.cbar i{display:block;height:100%;border-radius:2px;background:var(--card-ink);transform-origin:100% 50%;transform:scaleX(0)}
+.pen{position:absolute;top:0;inset-inline-end:0;width:44px;height:44px;display:grid;place-items:center;color:var(--card-ink);border-radius:12px}
+.pen span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--card-ink) 18%,transparent)}
+.pen .ic{width:15px;height:15px}
+.note .pick{border-radius:4px}
+.note .tl{border-radius:4px;color:var(--cash-ink);background:
+  radial-gradient(70% 90% at 14% 50%,color-mix(in srgb,var(--cash-ink) 12%,transparent),transparent 70%),
+  repeating-linear-gradient(0deg,color-mix(in srgb,var(--cash-ink) 6%,transparent) 0 1px,transparent 1px 4px),
+  linear-gradient(225deg,var(--cash-a),var(--cash-b));
+  box-shadow:var(--ring),inset 0 0 0 1px color-mix(in srgb,var(--cash-ink) 20%,transparent),0 12px 22px -14px var(--cash-a)}
+.note .tl::before{content:"";position:absolute;inset:5px;border:1px solid color-mix(in srgb,var(--cash-ink) 45%,transparent);border-radius:2px;pointer-events:none}
+.note .shine{background:linear-gradient(105deg,transparent 42%,color-mix(in srgb,var(--cash-ink) 24%,transparent) 50%,transparent 58%)}
+.guil{position:absolute;left:-14px;top:50%;width:96px;height:96px;margin-top:-48px;fill:none;stroke:var(--cash-ink);stroke-width:.6;opacity:.3;pointer-events:none}
+.note .top,.note .amt2,.note .bot{position:relative}
+.note .den{margin-inline-start:auto;font-weight:700;font-size:15px}
+.ser{font-size:11px;letter-spacing:.08em;opacity:.85}
+@media (min-width:460px){.pick .tl{padding:16px;height:auto;aspect-ratio:1.586}.pick .amt2{font-size:32px}.pick .lg{display:inline}.pick .sm{display:none}.pick .top{font-size:15px}.emv{width:38px;height:28px}}
+.dayed{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 12px;margin-top:-4px}
+.dayed label{flex:1;min-width:0}
+.dayed input{width:64px;font-size:16px;min-height:44px;border:1px solid var(--tick);background:var(--bg);border-radius:8px;padding:4px 8px;direction:ltr;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.dayed .btn{min-height:44px;font-weight:500;border:1.5px solid var(--tick)}
+
+h2{font-size:15px;font-weight:700;margin:0;display:flex;justify-content:space-between;gap:8px;align-items:center;min-height:44px}
+h2 #listSub{flex:1}
+.link.ed{color:var(--accent);font-size:15px;font-weight:500;margin-inline-end:-8px}
+.ed .ic{width:16px;height:16px}
+h2 span+span{font-weight:400;color:var(--muted);font-size:13px;text-align:left}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.row{padding:6px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.list.editing .row{padding:12px 12px 4px 16px}
+.rv{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+.rv .rn{font-weight:500;min-width:0;overflow-wrap:anywhere}
+.rv .rn.none{color:var(--muted);font-weight:400}
+.rv .ra{text-align:left;font-weight:700;white-space:nowrap}
+.rv .ra small{display:block;font-size:13px;font-weight:400;color:var(--muted)}
+.list.editing .rv,.list:not(.editing) .r1,.list:not(.editing) .r2,.list:not(.editing):not(.none) .add{display:none}
+.r1{display:flex;gap:8px;align-items:center}
+.r1 input{border:0;background:transparent;min-height:44px;border-radius:8px;padding:4px 8px;min-width:0}
+@media (hover:hover){.r1 input:hover{background:var(--bg)}}
+.r1 input:focus{background:var(--bg);outline:2px solid var(--accent);outline-offset:0}
+.name{flex:1;font-weight:500}
+.amt{box-shadow:inset 0 -1.5px 0 var(--tick);width:92px;flex:none;text-align:left;direction:ltr;font-weight:700;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.chip{flex:none;min-width:44px;height:44px;border-radius:8px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--tick);font-weight:700;color:var(--muted)}
+@media (hover:hover){.chip:hover{color:var(--accent);background:var(--accent-soft)}}
+.r2{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted);padding-inline-start:8px}
+.r2 .calc{flex:1;font-variant-numeric:tabular-nums;min-width:0}
+.link{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding-inline:8px;border-radius:8px;font-size:13px;color:var(--muted)}
+.link .ic{width:16px;height:16px}
+@media (hover:hover){.link:hover{background:var(--bg);color:var(--ink)}}
+@media (hover:hover){.link.del:hover{color:var(--danger)}}
+.add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;color:var(--accent);font-weight:500}
+@media (hover:hover){.add:hover{background:var(--accent-soft)}}
+.empty,.loading #rows:empty::after{padding:24px 16px;text-align:center;color:var(--muted);border-bottom:1px solid var(--line)}
+.loading #rows:empty::after{content:attr(data-wait);display:block}
+.loading #acts,.loading #partForm,.loading #add{display:none}
+.loading .big,.loading .amt2{opacity:.35}
+
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:4px}
+.stat .lab{font-size:15px;color:var(--muted)}
+.stat .big{font-size:40px;font-weight:700;line-height:1.05;letter-spacing:-.02em;text-align:right}
+.stat .sub{font-size:13px;color:var(--muted)}
+.hrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"m a" "d a";align-items:center;gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.hrow:last-child,.frow:last-child{border-bottom:0}
+.hmain{grid-area:m;min-width:0}
+.ht{font-weight:500}
+.hs{font-size:13px;color:var(--muted)}
+.hamt{grid-area:a;font-weight:700}
+.hdate{grid-area:d;justify-self:start;min-height:44px;border:1px solid var(--tick);background:var(--bg);border-radius:8px;padding:4px 8px;font-variant-numeric:tabular-nums}
+.hfix{grid-area:d;justify-self:start;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hrow.next{color:var(--muted)}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.frow label{font-weight:500}
+.frow .box{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.frow input{width:132px;max-width:42vw;min-height:48px;border:1px solid var(--tick);background:var(--bg);border-radius:10px;padding:4px 12px;direction:ltr;text-align:left;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+
+.foot{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;font-size:15px;color:var(--muted)}
+.rate{display:flex;align-items:center;gap:8px}
+.rate input{width:72px;font-size:16px;min-height:44px;border:1px solid var(--tick);background:var(--surface);border-radius:8px;padding:4px 8px;direction:ltr;text-align:center;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.status{min-height:44px;display:flex;align-items:center;gap:8px}
+.status button{color:var(--accent);min-height:44px;padding-inline:4px}
+</style>
+</head>
+<body>
+<script>
+/* standalone storage: same calls the page already makes, saved on this device */
+(function(){
+  var KEY='budget:', asked=false;
+  function read(p){ try{ var s=localStorage.getItem(KEY+p); return s?JSON.parse(s):null; }catch(e){ return null; } }
+  function snap(p){ var d=read(p); return { id:p.split('/').pop(), exists:!!d, data:function(){ return d||undefined; }, metadata:{ fromCache:false, hasPendingWrites:false } }; }
+  function doc(p){ return { id:p.split('/').pop(), path:p,
+    get:function(){ return Promise.resolve(snap(p)); },
+    set:function(d){ try{ localStorage.setItem(KEY+p, JSON.stringify(d)); }catch(e){ return Promise.reject({ code:'quota_exceeded', message:String(e) }); }
+      if(!asked){ asked=true; try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){} }
+      return Promise.resolve(); },
+    onSnapshot:function(next){ setTimeout(function(){ next(snap(p)); },0); return function(){}; } }; }
+  window.claude={ use:function(n){ return Promise.resolve(n==='db'?{ doc:doc }:null); } };
+  if('serviceWorker' in navigator) window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+})();
+</script>
+<main dir="rtl" lang="he" class="loading">
+ <div class="side">
+  <h1 class="vh">תקציב שבועי וחודשי</h1>
+  <nav class="tabs" role="tablist" aria-label="מסכים">
+    <button role="tab" id="tab-b" aria-selected="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>תקציב</button>
+    <button role="tab" id="tab-y" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>שנתי</button>
+    <button role="tab" id="tab-h" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>היסטוריה</button>
+    <button role="tab" id="tab-g" aria-selected="false" aria-label="הגדרות" title="הגדרות"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </nav>
+
+  <header class="wk">
+    <div class="ruler" id="ruler" role="img" aria-label="ציר הזמן של השבוע"><div class="track" id="track"></div><div class="needle"></div><div class="ball"></div></div>
+    <div class="dates" id="dates">&nbsp;</div>
+  </header>
+
+  <div id="hero-b" style="display:contents">
+    <div class="total" aria-live="polite">
+      <div class="lab">סך כל ההוצאות לחודש</div>
+      <div class="big n" id="tBig">–</div>
+      <div class="sub" id="tSub">&nbsp;</div>
+    </div>
+
+    <div class="ask" id="ask" aria-live="polite">
+      <div class="head"><span class="lamp" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg></span><div style="flex:1;min-width:0"><div class="lab" id="bLab">התקציב השבועי</div><div class="big n" id="bBig">–</div></div></div>
+      <div class="sub" id="bSub">&nbsp;</div>
+      <div id="askBody" style="display:contents">
+        <div class="acts" id="acts">
+          <button class="btn solid" id="takeAll">לקחתי הכל</button>
+          <button class="btn ghost" id="defer">דחיתי היום</button>
+        </div>
+        <form class="part" id="partForm">
+          <label for="partAmt" id="partLab">לקחתי סכום אחר</label>
+          <input id="partAmt" type="number" inputmode="decimal" min="0" step="any" placeholder="₪">
+          <button class="btn ghost" type="submit">אישור</button>
+        </form>
+      </div>
+    </div>
+    <div class="last" id="last" hidden><span id="lastTxt"></span><button id="undoAct">ביטול</button></div>
+
+    <div class="wallet" id="wallet">
+      <div class="obj note">
+        <button class="pick" id="pickW" aria-pressed="true"><span class="in" aria-hidden="true"><span class="tl"><svg class="guil" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(0 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(12 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(24 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(36 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(48 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(72 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(84 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(96 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(108 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(120 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(132 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(144 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(156 50 50)"/><ellipse cx="50" cy="50" rx="46" ry="17" transform="rotate(168 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(6 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(24 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(42 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(78 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(96 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(114 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(132 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(150 50 50)"/><ellipse cx="50" cy="50" rx="28" ry="9" transform="rotate(168 50 50)"/><circle cx="50" cy="50" r="47"/></svg>
+          <span class="top"><span>מזומן לשבוע</span><span class="den">₪</span></span>
+          <span class="amt2 n" id="wBig">–</span>
+          <span class="bot"><span id="wSub">לחודש</span><span class="ser n lg" id="wSer"></span></span>
+          <span class="shine"></span></span></span></button>
+      </div>
+      <div class="obj cc">
+        <button class="pick" id="pickC" aria-pressed="false"><span class="in" aria-hidden="true"><span class="tl">
+          <span class="top"><svg class="emv" viewBox="0 0 30 22" aria-hidden="true" focusable="false"><defs><linearGradient id="emvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--glow)"/><stop offset="1" style="stop-color:color-mix(in srgb,var(--glow) 45%,var(--card-ink))"/></linearGradient></defs><rect x=".5" y=".5" width="29" height="21" rx="4" fill="url(#emvg)"/><path d="M10 .5v6h10V.5M10 21.5v-6h10v6M.5 8H10M.5 14H10M20 8h9.5M20 14h9.5M10 6.5v9M20 6.5v9"/></svg><svg class="wave" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.5 16.5a6.5 6.5 0 0 0 0-9"/><path d="M12.5 19a10.5 10.5 0 0 0 0-14"/><path d="M16.5 21.5a14.5 14.5 0 0 0 0-19"/></svg><span>אשראי</span></span>
+          <span class="amt2 n" id="cBig">–</span>
+          <span><span class="bot"><span><span class="lg" id="cDay"></span><span class="sm" id="cDayS"></span></span><b id="cIn"></b></span><span class="cbar"><i id="cBar"></i></span></span>
+          <span class="shine"></span></span></span></button>
+        <button class="pen" id="dayBtn" aria-label="לשנות את היום שבו האשראי יורד" aria-expanded="false" aria-controls="dayEd"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></span></button>
+      </div>
+    </div>
+    <div class="dayed" id="dayEd" hidden><label for="billDay">יורד בכל חודש ביום</label><input id="billDay" type="number" inputmode="numeric" min="1" max="28" step="1"><button class="btn" id="dayOk">סיום</button></div>
+  </div>
+
+  <div id="hero-g" hidden></div>
+  <div id="hero-h" hidden style="display:contents">
+    <div class="stat"><div class="lab">נמשך מהתקציב השבועי עד היום</div><div class="big n" id="hBig">–</div><div class="sub" id="hSub">&nbsp;</div></div>
+  </div>
+
+  <div id="hero-y" hidden style="display:contents">
+    <div class="stat" aria-live="polite"><div class="lab">נשאר בתקציב השנתי</div><div class="big n" id="yBig">–</div><div class="bar" aria-hidden="true"><i id="yBar" style="width:0"></i></div><div class="sub" id="ySub">&nbsp;</div></div>
+  </div>
+ </div>
+
+ <div class="content">
+  <h2><span id="listTitle">הוצאות</span> <span id="listSub"></span><button class="link ed" id="editBtn" aria-pressed="false" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><span id="editTxt">עריכה</span></button></h2>
+
+  <section class="list" id="box-items">
+    <div id="rows" data-wait="טוען את ההוצאות…"><div class="empty">טוען את ההוצאות…</div></div>
+    <button class="add" id="add"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>שדה חדש</button>
+  </section>
+
+  <section class="list" id="box-h" hidden><div id="hist"></div></section>
+
+  <div class="ybox" id="box-y" hidden>
+    <div class="tiles" id="tiles"></div>
+    <section class="list">
+      <div class="frow"><label for="money">כסף בבנק</label><div class="box"><input id="money" type="number" inputmode="decimal" min="0" step="any" placeholder="0"> ₪</div></div>
+      <div class="frow"><label for="debt">חובות</label><div class="box"><input id="debt" type="number" inputmode="decimal" min="0" step="any" placeholder="0"> ₪</div></div>
+      <div class="frow"><span style="font-weight:500">נטו</span><span class="n" id="sBig" style="font-size:20px;font-weight:700">–</span></div>
+    </section>
+    <h2><span>חודש אחרי חודש</span> <span>מה מתוכנן לרדת</span></h2>
+    <section class="list scroll"><table class="ytab"><thead><tr><th>חודש</th><th class="n">אשראי</th><th class="n">מזומן</th><th class="n">נשאר</th></tr></thead><tbody id="ybody"></tbody></table></section>
+    <div class="cap" id="yCap"></div>
+  </div>
+
+  <div class="ybox" id="box-g" hidden>
+    <div class="tabs sub" role="tablist" aria-label="הגדרות">
+      <button role="tab" id="set-gen" aria-selected="true">כללי</button>
+      <button role="tab" id="set-ref" aria-selected="false">רפרנסים לעיצוב</button>
+    </div>
+    <section class="list" id="set-gen-box">
+      <div class="frow"><label for="rate">שער הדולר</label><div class="box"><input id="rate" type="number" inputmode="decimal" step="0.01" min="0"> ₪</div></div>
+    </section>
+    <div class="ybox" id="set-ref-box" hidden>
+      <div class="cap">כל כרטיס הוא שיפור אחד, עם מספרים לדוגמה. מסמנים, כותבים למה, ובסוף שולחים. שום דבר כאן לא משנה את המערכת או את הנתונים שלך.</div>
+      <div class="ybox" id="impList"></div>
+      <div class="sendbar" id="sendbar" hidden>
+        <div id="sendTxt"></div>
+        <button class="savebtn" id="sendBtn">סיימתי להגיב</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <div class="status" id="status" role="status"></div>
+  </footer>
+ </div>
+</main>
+
+
+<script>
+const PARSHA = {"2026-09-05":{"n":"נצבים־וילך"},"2026-09-12":{"n":"ראש השנה","h":1},"2026-09-19":{"n":"האזינו"},"2026-09-26":{"n":"סוכות א׳","h":1},"2026-10-03":{"n":"שמיני עצרת","h":1},"2026-10-10":{"n":"בראשית"},"2026-10-17":{"n":"נח"},"2026-10-24":{"n":"לך־לך"},"2026-10-31":{"n":"וירא"},"2026-11-07":{"n":"חיי שרה"},"2026-11-14":{"n":"תולדות"},"2026-11-21":{"n":"ויצא"},"2026-11-28":{"n":"וישלח"},"2026-12-05":{"n":"וישב"},"2026-12-12":{"n":"מקץ"},"2026-12-19":{"n":"ויגש"},"2026-12-26":{"n":"ויחי"},"2027-01-02":{"n":"שמות"},"2027-01-09":{"n":"וארא"},"2027-01-16":{"n":"בא"},"2027-01-23":{"n":"בשלח"},"2027-01-30":{"n":"יתרו"},"2027-02-06":{"n":"משפטים"},"2027-02-13":{"n":"תרומה"},"2027-02-20":{"n":"תצוה"},"2027-02-27":{"n":"כי תשא"},"2027-03-06":{"n":"ויקהל"},"2027-03-13":{"n":"פקודי"},"2027-03-20":{"n":"ויקרא"},"2027-03-27":{"n":"צו"},"2027-04-03":{"n":"שמיני"},"2027-04-10":{"n":"תזריע"},"2027-04-17":{"n":"מצרע"},"2027-04-24":{"n":"פסח ג׳ (חוה״מ)","h":1},"2027-05-01":{"n":"אחרי מות"},"2027-05-08":{"n":"קדשים"},"2027-05-15":{"n":"אמור"},"2027-05-22":{"n":"בהר"},"2027-05-29":{"n":"בחקתי"},"2027-06-05":{"n":"במדבר"},"2027-06-12":{"n":"נשא"},"2027-06-19":{"n":"בהעלתך"},"2027-06-26":{"n":"שלח־לך"},"2027-07-03":{"n":"קורח"},"2027-07-10":{"n":"חוקת"},"2027-07-17":{"n":"בלק"},"2027-07-24":{"n":"פינחס"},"2027-07-31":{"n":"מטות־מסעי"},"2027-08-07":{"n":"דברים"},"2027-08-14":{"n":"ואתחנן"},"2027-08-21":{"n":"עקב"},"2027-08-28":{"n":"ראה"},"2027-09-04":{"n":"שופטים"},"2027-09-11":{"n":"כי־תצא"},"2027-09-18":{"n":"כי־תבוא"},"2027-09-25":{"n":"נצבים־וילך"},"2027-10-02":{"n":"ראש השנה","h":1},"2027-10-09":{"n":"האזינו"},"2027-10-16":{"n":"סוכות א׳","h":1},"2027-10-23":{"n":"שמיני עצרת","h":1},"2027-10-30":{"n":"בראשית"},"2027-11-06":{"n":"נח"},"2027-11-13":{"n":"לך־לך"},"2027-11-20":{"n":"וירא"},"2027-11-27":{"n":"חיי שרה"},"2027-12-04":{"n":"תולדות"},"2027-12-11":{"n":"ויצא"},"2027-12-18":{"n":"וישלח"},"2027-12-25":{"n":"וישב"},"2028-01-01":{"n":"מקץ"},"2028-01-08":{"n":"ויגש"},"2028-01-15":{"n":"ויחי"},"2028-01-22":{"n":"שמות"},"2028-01-29":{"n":"וארא"},"2028-02-05":{"n":"בא"},"2028-02-12":{"n":"בשלח"},"2028-02-19":{"n":"יתרו"},"2028-02-26":{"n":"משפטים"},"2028-03-04":{"n":"תרומה"},"2028-03-11":{"n":"תצוה"},"2028-03-18":{"n":"כי תשא"},"2028-03-25":{"n":"ויקהל־פקודי"},"2028-04-01":{"n":"ויקרא"},"2028-04-08":{"n":"צו"},"2028-04-15":{"n":"פסח ה׳ (חוה״מ)","h":1},"2028-04-22":{"n":"שמיני"},"2028-04-29":{"n":"תזריע־מצרע"},"2028-05-06":{"n":"אחרי מות־קדשים"},"2028-05-13":{"n":"אמור"},"2028-05-20":{"n":"בהר־בחקתי"},"2028-05-27":{"n":"במדבר"},"2028-06-03":{"n":"נשא"},"2028-06-10":{"n":"בהעלתך"},"2028-06-17":{"n":"שלח־לך"},"2028-06-24":{"n":"קורח"},"2028-07-01":{"n":"חוקת"},"2028-07-08":{"n":"בלק"},"2028-07-15":{"n":"פינחס"},"2028-07-22":{"n":"מטות־מסעי"},"2028-07-29":{"n":"דברים"},"2028-08-05":{"n":"ואתחנן"},"2028-08-12":{"n":"עקב"},"2028-08-19":{"n":"ראה"},"2028-08-26":{"n":"שופטים"},"2028-09-02":{"n":"כי־תצא"},"2028-09-09":{"n":"כי־תבוא"},"2028-09-16":{"n":"נצבים־וילך"},"2028-09-23":{"n":"האזינו"},"2028-09-30":{"n":"יום כיפור","h":1},"2028-10-07":{"n":"סוכות ג׳ (חוה״מ)","h":1},"2028-10-14":{"n":"בראשית"},"2028-10-21":{"n":"נח"},"2028-10-28":{"n":"לך־לך"},"2028-11-04":{"n":"וירא"},"2028-11-11":{"n":"חיי שרה"},"2028-11-18":{"n":"תולדות"},"2028-11-25":{"n":"ויצא"},"2028-12-02":{"n":"וישלח"},"2028-12-09":{"n":"וישב"},"2028-12-16":{"n":"מקץ"},"2028-12-23":{"n":"ויגש"},"2028-12-30":{"n":"ויחי"},"2029-01-06":{"n":"שמות"},"2029-01-13":{"n":"וארא"},"2029-01-20":{"n":"בא"},"2029-01-27":{"n":"בשלח"},"2029-02-03":{"n":"יתרו"},"2029-02-10":{"n":"משפטים"},"2029-02-17":{"n":"תרומה"},"2029-02-24":{"n":"תצוה"},"2029-03-03":{"n":"כי תשא"},"2029-03-10":{"n":"ויקהל־פקודי"},"2029-03-17":{"n":"ויקרא"},"2029-03-24":{"n":"צו"},"2029-03-31":{"n":"פסח א׳","h":1},"2029-04-07":{"n":"שמיני"},"2029-04-14":{"n":"תזריע־מצרע"},"2029-04-21":{"n":"אחרי מות־קדשים"},"2029-04-28":{"n":"אמור"},"2029-05-05":{"n":"בהר"},"2029-05-12":{"n":"בחקתי"},"2029-05-19":{"n":"במדבר"},"2029-05-26":{"n":"נשא"},"2029-06-02":{"n":"בהעלתך"},"2029-06-09":{"n":"שלח־לך"},"2029-06-16":{"n":"קורח"},"2029-06-23":{"n":"חוקת"},"2029-06-30":{"n":"בלק"},"2029-07-07":{"n":"פינחס"},"2029-07-14":{"n":"מטות־מסעי"},"2029-07-21":{"n":"דברים"},"2029-07-28":{"n":"ואתחנן"},"2029-08-04":{"n":"עקב"},"2029-08-11":{"n":"ראה"},"2029-08-18":{"n":"שופטים"},"2029-08-25":{"n":"כי־תצא"},"2029-09-01":{"n":"כי־תבוא"},"2029-09-08":{"n":"נצבים"},"2029-09-15":{"n":"וילך"},"2029-09-22":{"n":"האזינו"},"2029-09-29":{"n":"סוכות ו׳ (חוה״מ)","h":1},"2029-10-06":{"n":"בראשית"},"2029-10-13":{"n":"נח"},"2029-10-20":{"n":"לך־לך"},"2029-10-27":{"n":"וירא"},"2029-11-03":{"n":"חיי שרה"},"2029-11-10":{"n":"תולדות"},"2029-11-17":{"n":"ויצא"},"2029-11-24":{"n":"וישלח"},"2029-12-01":{"n":"וישב"},"2029-12-08":{"n":"מקץ"},"2029-12-15":{"n":"ויגש"},"2029-12-22":{"n":"ויחי"},"2029-12-29":{"n":"שמות"},"2030-01-05":{"n":"וארא"},"2030-01-12":{"n":"בא"},"2030-01-19":{"n":"בשלח"},"2030-01-26":{"n":"יתרו"},"2030-02-02":{"n":"משפטים"},"2030-02-09":{"n":"תרומה"},"2030-02-16":{"n":"תצוה"},"2030-02-23":{"n":"כי תשא"},"2030-03-02":{"n":"ויקהל"},"2030-03-09":{"n":"פקודי"},"2030-03-16":{"n":"ויקרא"},"2030-03-23":{"n":"צו"},"2030-03-30":{"n":"שמיני"},"2030-04-06":{"n":"תזריע"},"2030-04-13":{"n":"מצרע"},"2030-04-20":{"n":"פסח ג׳ (חוה״מ)","h":1},"2030-04-27":{"n":"אחרי מות"},"2030-05-04":{"n":"קדשים"},"2030-05-11":{"n":"אמור"},"2030-05-18":{"n":"בהר"},"2030-05-25":{"n":"בחקתי"},"2030-06-01":{"n":"במדבר"},"2030-06-08":{"n":"נשא"},"2030-06-15":{"n":"בהעלתך"},"2030-06-22":{"n":"שלח־לך"},"2030-06-29":{"n":"קורח"},"2030-07-06":{"n":"חוקת"},"2030-07-13":{"n":"בלק"},"2030-07-20":{"n":"פינחס"},"2030-07-27":{"n":"מטות־מסעי"},"2030-08-03":{"n":"דברים"},"2030-08-10":{"n":"ואתחנן"},"2030-08-17":{"n":"עקב"},"2030-08-24":{"n":"ראה"},"2030-08-31":{"n":"שופטים"},"2030-09-07":{"n":"כי־תצא"},"2030-09-14":{"n":"כי־תבוא"},"2030-09-21":{"n":"נצבים־וילך"},"2030-09-28":{"n":"ראש השנה","h":1},"2030-10-05":{"n":"האזינו"},"2030-10-12":{"n":"סוכות א׳","h":1},"2030-10-19":{"n":"שמיני עצרת","h":1},"2030-10-26":{"n":"בראשית"},"2030-11-02":{"n":"נח"},"2030-11-09":{"n":"לך־לך"},"2030-11-16":{"n":"וירא"},"2030-11-23":{"n":"חיי שרה"},"2030-11-30":{"n":"תולדות"},"2030-12-07":{"n":"ויצא"},"2030-12-14":{"n":"וישלח"},"2030-12-21":{"n":"וישב"},"2030-12-28":{"n":"מקץ"},"2031-01-04":{"n":"ויגש"},"2031-01-11":{"n":"ויחי"},"2031-01-18":{"n":"שמות"},"2031-01-25":{"n":"וארא"},"2031-02-01":{"n":"בא"},"2031-02-08":{"n":"בשלח"},"2031-02-15":{"n":"יתרו"},"2031-02-22":{"n":"משפטים"},"2031-03-01":{"n":"תרומה"},"2031-03-08":{"n":"תצוה"},"2031-03-15":{"n":"כי תשא"},"2031-03-22":{"n":"ויקהל־פקודי"},"2031-03-29":{"n":"ויקרא"},"2031-04-05":{"n":"צו"},"2031-04-12":{"n":"פסח ה׳ (חוה״מ)","h":1},"2031-04-19":{"n":"שמיני"},"2031-04-26":{"n":"תזריע־מצרע"},"2031-05-03":{"n":"אחרי מות־קדשים"},"2031-05-10":{"n":"אמור"},"2031-05-17":{"n":"בהר־בחקתי"},"2031-05-24":{"n":"במדבר"},"2031-05-31":{"n":"נשא"},"2031-06-07":{"n":"בהעלתך"},"2031-06-14":{"n":"שלח־לך"},"2031-06-21":{"n":"קורח"},"2031-06-28":{"n":"חוקת"},"2031-07-05":{"n":"בלק"},"2031-07-12":{"n":"פינחס"},"2031-07-19":{"n":"מטות־מסעי"},"2031-07-26":{"n":"דברים"},"2031-08-02":{"n":"ואתחנן"},"2031-08-09":{"n":"עקב"},"2031-08-16":{"n":"ראה"},"2031-08-23":{"n":"שופטים"},"2031-08-30":{"n":"כי־תצא"},"2031-09-06":{"n":"כי־תבוא"},"2031-09-13":{"n":"נצבים־וילך"},"2031-09-20":{"n":"האזינו"},"2031-09-27":{"n":"יום כיפור","h":1},"2031-10-04":{"n":"סוכות ג׳ (חוה״מ)","h":1},"2031-10-11":{"n":"בראשית"},"2031-10-18":{"n":"נח"},"2031-10-25":{"n":"לך־לך"},"2031-11-01":{"n":"וירא"},"2031-11-08":{"n":"חיי שרה"},"2031-11-15":{"n":"תולדות"},"2031-11-22":{"n":"ויצא"},"2031-11-29":{"n":"וישלח"},"2031-12-06":{"n":"וישב"},"2031-12-13":{"n":"מקץ"},"2031-12-20":{"n":"ויגש"},"2031-12-27":{"n":"ויחי"}};
+const $ = id => document.getElementById(id);
+const fmt = n => (n<0?'-':'') + '₪' + Math.abs(Math.round(n)).toLocaleString('en-US');
+const pad = n => String(n).padStart(2,'0');
+const key = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const ym = d => d.getFullYear()+'-'+pad(d.getMonth()+1);
+const fromKey = k => { const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); };
+const DAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+/* ---------- timeline: "now" stays in the middle, a full week behind it and a full week ahead ---------- */
+function shabbatOf(d){ const s=new Date(d.getFullYear(),d.getMonth(),d.getDate()); s.setDate(s.getDate()+(6-s.getDay())); return s; }
+const pName = k => { const p=PARSHA[k]; return p ? (p.h ? 'שבת ' + p.n : 'פרשת ' + p.n) : ''; };
+let weekKey = '', builtDay = '', started = false;
+function buildRuler(now){
+  const sat = shabbatOf(now); weekKey = key(sat); builtDay = key(now);
+  const t = $('track'); t.textContent='';
+  for(let w=-1; w<=1; w++){
+    const s = new Date(sat); s.setDate(s.getDate()+w*7);
+    for(let d=1; d<=7; d++){
+      const past = w<0 || (w===0 && d<now.getDay()+1), isNow = w===0 && d===now.getDay()+1;
+      const c=document.createElement('div'); c.className='cell'+(w===0?' cur':'')+(past?' past':'')+(isNow?' now':'')+(d===7?' sh':'');
+      const n=document.createElement('div'); n.className='d'; n.textContent=d; c.append(n);
+      const p = d===7 ? PARSHA[key(s)] : null;
+      if(p){ const el=document.createElement('div'); el.className='p'; const a=document.createElement('small'); a.textContent=p.h?'שבת':'פרשת'; const b=document.createElement('b'); b.textContent=p.n; el.append(a,b); c.append(el); }
+      t.append(c);
+    }
+  }
+  $('ruler').setAttribute('aria-label','השבוע: ' + (pName(weekKey)||'') + ', יום ' + (now.getDay()+1) + ' מתוך 7');
+}
+let lastPos = 0;
+function place(pos){ lastPos = pos; const t=$('track'); t.style.transform = 'translateX(' + (pos/21*100).toFixed(3) + '%)';
+  /* presentation only: keep every portion name fully inside the ruler (its tick stays put), and never let two names touch */
+  const W=$('ruler').clientWidth, day=t.clientWidth/21, pad=W*.08, cells=[...t.children]; let cur=null;
+  t.querySelectorAll('.p').forEach(el=>{ const off=(cells.indexOf(el.parentNode)+.5-pos)*day, w=el.offsetWidth, half=Math.max(0,W/2-pad-w/2), c=Math.max(-half,Math.min(half,off));
+    el.style.transform='translateX(calc(-50% + '+(off-c).toFixed(1)+'px))'; el.style.opacity=Math.abs(off)>W/2?0:1; el._c=c; el._w=w; if(el.parentNode.classList.contains('cur')) cur=el; });
+  if(cur) t.querySelectorAll('.cell:not(.cur) .p').forEach(el=>{ if(Math.abs(el._c-cur._c) < (el._w+cur._w)/2+8) el.style.opacity=0; });
+}
+function tick(){
+  const now = new Date();
+  const fresh = key(now)!==builtDay; if(fresh){ if(started) $('track').classList.remove('go'); buildRuler(now); if(S) paint(); }
+  const pos = 7 + now.getDay() + (now.getHours()*60+now.getMinutes())/1440;
+  if(!started){ started=true; place(pos-2); requestAnimationFrame(()=>requestAnimationFrame(()=>{ $('track').classList.add('go'); place(pos); })); }
+  else { place(pos); if(fresh){ void $('track').offsetWidth; $('track').classList.add('go'); } }
+  const f = new Intl.DateTimeFormat('he-IL',{day:'numeric',month:'long'});
+  $('dates').textContent = 'יום ' + DAYS[now.getDay()] + ' · ' + f.format(now) + ' · ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+}
+
+/* ---------- state ---------- */
+let S = null;   // {rate, items:[{id,name,amount,cur,fixed}], start, grants, charges, takes:[{ts,week,amount}], defers:[ts], money, debt, billDay}
+let ref = null, dirty = false, saving = false, timer = null, readOnly = false, undo = null;
+let setK = 'gen';
+let tab = ({'#history':'h','#status':'y','#year':'y','#settings':'g'})[location.hash] || 'b', mode = 'w', editing = false;   // mode: which lines are open, weekly cash or fixed credit
+const num = v => { const n = parseFloat(v); return isFinite(n) && n>0 ? n : 0; };
+const ils = it => num(it.amount) * (it.cur==='usd' ? num(S.rate) : 1);
+const sumOf = fixed => S.items.filter(i=>!!i.fixed===fixed).reduce((a,i)=>a+ils(i),0);
+const baseWeekly = () => sumOf(false)/4;
+
+/* every week from the first one adds one weekly budget; whatever was not taken stays for the next week */
+function weeksUpToNow(){ const out=[]; let d=fromKey(S.start||weekKey); const end=fromKey(weekKey); let g=0; while(d<=end && g++<600){ out.push(key(d)); d.setDate(d.getDate()+7); } return out.length?out:[weekKey]; }
+function ledger(){
+  const weeks = weeksUpToNow(), base = baseWeekly();
+  const granted = weeks.reduce((a,w)=> a + (w!==weekKey && S.grants[w]!=null ? num(S.grants[w]) : base), 0);
+  const taken = S.takes.reduce((a,t)=>a+num(t.amount),0);
+  const lastTake = S.takes.reduce((a,t)=>Math.max(a,t.ts||0),0);
+  const defs = S.defers.filter(ts=>ts>lastTake);
+  return {base, avail: granted-taken, defs, lastTake};
+}
+function chargeDates(){   // one credit charge per month on the billing day, from the first week on
+  const out=[], first=fromKey(S.start||weekKey); first.setDate(first.getDate()-6); const now=new Date();
+  let y=first.getFullYear(), m=first.getMonth();
+  for(let g=0;g<240;g++,m++){ const d=new Date(y,m,S.billDay); if(d>now){ out.push({d,next:true}); break; } if(d>=first) out.push({d}); }
+  return out;
+}
+function freezePast(){ const base=baseWeekly(), fx=Math.round(sumOf(true));
+  for(const c of chargeDates()){ if(!c.next && S.charges[ym(c.d)]==null) S.charges[ym(c.d)]=fx; }
+  for(const w of weeksUpToNow()){ if(w!==weekKey && S.grants[w]==null) S.grants[w]=Math.round(base*100)/100; }
+  if(!S.start) S.start=weekKey; }
+
+/* ---------- painting ---------- */
+const calcText = it => it.fixed ? (it.cur==='usd' ? '≈ ' + fmt(ils(it)) + ' לחודש' : 'לחודש') : '≈ ' + fmt(ils(it)/4) + ' לשבוע';
+function paint(){
+  if(!S) return;
+  const L = ledger(), today = key(new Date());
+  const m0 = sumOf(false), m1 = sumOf(true);
+  $('tBig').textContent = fmt(m0+m1);
+  $('tSub').textContent = 'אשראי קבוע ' + fmt(m1) + ' · מזומן ' + fmt(m0) + ' (' + fmt(m0/4) + ' לשבוע)';
+
+  /* the weekly question: lit until answered, then off until the next day (deferred) or the next week (taken) */
+  const tookWeek = S.takes.filter(t=>t.week===weekKey).reduce((a,t)=>a+num(t.amount),0);
+  const deferredToday = L.defs.some(ts=>key(new Date(ts))===today);
+  const defTxt = L.defs.length ? (L.defs.length===1 ? 'דחייה: יום אחד' : 'דחייה: ' + L.defs.length + ' ימים') : '';
+  const on = !readOnly && L.avail>0.5 && !tookWeek && !deferredToday;
+  $('ask').classList.toggle('on', on); $('ask').dataset.state = on ? 'ask' : tookWeek ? 'took' : 'idle'; $('acts').hidden = !on; $('partForm').hidden = readOnly; $('partLab').textContent = on ? 'לקחתי סכום אחר' : 'משיכה נוספת';
+  if(on){
+    $('bLab').textContent = 'לקחת את התקציב השבועי?'; $('bBig').textContent = fmt(L.avail);
+    const extra = L.avail - L.base;
+    $('bSub').textContent = [extra>0.5 ? 'כולל ' + fmt(extra) + ' שנשארו מקודם' : '', defTxt].filter(Boolean).join(' · ') || 'מסמנים כאן, והשאלה נכבית.';
+  } else if(tookWeek){
+    $('bLab').textContent = 'לקחת השבוע'; $('bBig').textContent = fmt(tookWeek);
+    $('bSub').textContent = L.avail>0.5 ? 'נשארו ' + fmt(L.avail) + ' שעוברים לשבוע הבא' : L.avail<-0.5 ? 'חריגה של ' + fmt(-L.avail) + ', יורדת מהשבוע הבא' : 'התקציב הבא נפתח ביום ראשון';
+  } else if(deferredToday){
+    $('bLab').textContent = 'נדחה להיום'; $('bBig').textContent = fmt(L.avail);
+    $('bSub').textContent = defTxt + ' · נשאל שוב מחר';
+  } else {
+    $('bLab').textContent = 'המאזן השבועי'; $('bBig').textContent = fmt(L.avail);
+    $('bSub').textContent = L.avail<-0.5 ? 'חריגה מקודם. התקציב הבא יכסה אותה.' : 'אין מה לקחת כרגע';
+  }
+  $('bBig').classList.toggle('neg', !on && !tookWeek && L.avail<-0.5);
+  const lastDef = S.defers.length ? Math.max(...S.defers) : 0;
+  const f = new Intl.DateTimeFormat('he-IL',{weekday:'long',day:'numeric',month:'numeric'});
+  if(L.lastTake || lastDef){
+    const isTake = L.lastTake >= lastDef, t = isTake ? S.takes.find(x=>x.ts===L.lastTake) : null;
+    $('lastTxt').textContent = 'פעולה אחרונה: ' + (isTake ? 'לקחת ' + fmt(t.amount) : 'דחית יום') + ' · ' + f.format(new Date(isTake?L.lastTake:lastDef));
+    $('last').hidden = readOnly;
+  } else $('last').hidden = true;
+
+  const nc = S.items.filter(i=>i.fixed).length;
+  $('cBig').textContent = fmt(m1);
+  { const nx = (chargeDates().find(c=>c.next)||{}).d, now = new Date();   // the next credit charge: its date, how far it is, and how much of the month has passed
+    if(nx){ const pv = new Date(nx.getFullYear(),nx.getMonth()-1,S.billDay), days = Math.ceil((nx-now)/864e5);
+      $('cDay').textContent = 'יורד ב-' + new Intl.DateTimeFormat('he-IL',{day:'numeric',month:'long'}).format(nx);
+      $('cDayS').textContent = 'יורד ב-' + nx.getDate() + '.' + (nx.getMonth()+1);
+      $('cIn').textContent = days<=1 ? 'מחר' : 'בעוד ' + days + ' ימים';
+      $('cBar').style.transform = 'scaleX(' + Math.min(1,Math.max(0,(now-pv)/(nx-pv))).toFixed(3) + ')'; } }
+  $('wBig').textContent = fmt(m0/4); $('wSub').textContent = fmt(m0) + ' לחודש'; $('wSer').textContent = '№ ' + weekKey.replace(/-/g,'');
+  $('pickC').setAttribute('aria-label', 'הוצאות קבועות באשראי, ' + fmt(m1) + ' לחודש, ' + $('cDay').textContent + ', ' + $('cIn').textContent); $('pickW').setAttribute('aria-label', 'מזומן, ' + fmt(m0/4) + ' לשבוע, ' + fmt(m0) + ' לחודש');
+  const tk = S.takes.reduce((a,x)=>a+num(x.amount),0);
+  $('hBig').textContent = fmt(tk);
+  $('hSub').textContent = S.takes.length ? (S.takes.length===1 ? 'משיכה אחת' : S.takes.length + ' משיכות') : 'עוד אין משיכות';
+  paintYear(L, m0, m1);
+  $('listTitle').textContent = tab==='g' ? 'הגדרות' : tab==='h' ? 'היסטוריה' : tab==='y' ? 'דשבורד שנתי' : mode==='c' ? 'מה יורד באשראי' : 'מה נכנס למזומן';
+  $('listSub').textContent = tab==='g' ? '' : tab==='h' ? 'אפשר לתקן תאריך משיכה' : tab==='y' ? 'שנה קדימה לפי ההוצאות' : mode==='c' ? fmt(m1) + ' לחודש' + (nc>1 ? ' · ' + nc + ' חיובים' : '') : fmt(m0) + ' לחודש';
+  document.querySelectorAll('.row').forEach(r=>{ const it=S.items.find(x=>x.id===r.dataset.id); if(it) r.querySelectorAll('.calc').forEach(c=>c.textContent = calcText(it)); });
+}
+/* ---------- the year: 52 weekly budgets + the monthly credit charges inside those 52 weeks ---------- */
+function yearly(){
+  const base=baseWeekly(), fx=sumOf(true), now=new Date();
+  const idx=weeksUpToNow().length-1, y0=Math.floor(idx/52)*52;
+  const first=fromKey(S.start||weekKey); first.setDate(first.getDate()+y0*7);
+  const yStart=new Date(first); yStart.setDate(yStart.getDate()-6);
+  const yEnd=new Date(first); yEnd.setDate(yEnd.getDate()+51*7); yEnd.setHours(23,59,59,0);
+  const months=new Map(); const mo=d=>{ const k=ym(d); if(!months.has(k)) months.set(k,{d:new Date(d.getFullYear(),d.getMonth(),1),cred:0,cash:0,n:0,taken:0}); return months.get(k); };
+  for(let d=new Date(yStart.getFullYear(),yStart.getMonth(),1); d<=yEnd; d=new Date(d.getFullYear(),d.getMonth()+1,1)) mo(d);
+  let cashYear=0, credYear=0, credPaid=0, credN=0, next=null;
+  for(let i=0;i<52;i++){ const sat=new Date(first); sat.setDate(sat.getDate()+i*7); const sun=new Date(sat); sun.setDate(sun.getDate()-6); const k=key(sat);
+    const amt = k<weekKey && S.grants[k]!=null ? num(S.grants[k]) : base; cashYear+=amt; const m=mo(sun); m.cash+=amt; m.n++; }
+  for(let y=yStart.getFullYear(),m=yStart.getMonth(),g=0;g<14;g++,m++){ const d=new Date(y,m,S.billDay); if(d<yStart) continue; if(d>yEnd) break;
+    const past=d<=now, amt = past && S.charges[ym(d)]!=null ? num(S.charges[ym(d)]) : fx; credYear+=amt; mo(d).cred+=amt; if(past){ credPaid+=amt; credN++; } else if(!next) next=d; }
+  let taken=0, takeN=0; for(const t of S.takes){ if(t.ts>=yStart.getTime()){ taken+=num(t.amount); takeN++; const k=ym(new Date(t.ts)); if(months.has(k)) months.get(k).taken+=num(t.amount); } }
+  const total=cashYear+credYear;
+  return {total,cashYear,credYear,credPaid,credN,taken,takeN,left:total-taken-credPaid,next,fx,week:idx-y0+1,yEnd,months:[...months.values()]};
+}
+function paintYear(L, m0, m1){
+  $('sBig').textContent = fmt(num(S.money)-num(S.debt)); $('sBig').classList.toggle('neg', num(S.money)<num(S.debt));
+  if(tab!=='y') return;
+  const Y=yearly(), now=new Date(), fd=new Intl.DateTimeFormat('he-IL',{day:'numeric',month:'numeric',year:'numeric'}), fm=new Intl.DateTimeFormat('he-IL',{month:'long'});
+  $('yBig').textContent = fmt(Y.left); $('yBig').classList.toggle('neg', Y.left<0);
+  $('yBar').style.width = (Y.total>0 ? Math.min(100,Math.max(0,(Y.total-Y.left)/Y.total*100)) : 0).toFixed(1)+'%';
+  $('ySub').textContent = 'מתוך ' + fmt(Y.total) + ' לשנה · עד ' + fd.format(Y.yEnd);
+  const days = Y.next ? Math.ceil((Y.next-now)/864e5) : 0, mon=m0+m1, money=num(S.money);
+  const tiles=[
+    ['המאזן השבועי', fmt(L.avail), L.avail<-0.5 ? 'חריגה, יורדת מהשבוע הבא' : L.avail>0.5 ? 'מחכה למשיכה' : 'נלקח הכל', L.avail<-0.5],
+    ['נלקח במזומן', fmt(Y.taken), Y.takeN===1 ? 'משיכה אחת' : Y.takeN + ' משיכות'],
+    ['ירד באשראי', fmt(Y.credPaid), Y.credN===1 ? 'ירידה אחת' : Y.credN + ' ירידות'],
+    ['האשראי הבא', Y.next ? fmt(Y.fx) : '–', Y.next ? fd.format(Y.next) + ' · ' + (days<=1 ? 'מחר' : 'בעוד ' + days + ' ימים') : 'אין עוד השנה'],
+    ['שבוע', Y.week + ' מתוך 52', 'נשארו ' + (52-Y.week) + ' שבועות'],
+    ['הכסף בבנק מספיק ל', money>0 && mon>0 ? (money/mon).toFixed(1) + ' חודשים' : '–', money>0 ? 'לפי ' + fmt(mon) + ' לחודש' : 'כותבים למטה כמה כסף יש'],
+  ];
+  const box=$('tiles'); box.textContent='';
+  for(const [lab,v,s,neg] of tiles){ const el=document.createElement('div'); el.className='tile'; const a=document.createElement('div'); a.className='lab'; a.textContent=lab; const b=document.createElement('div'); b.className='v'+(neg?' neg':''); b.textContent=v; const c=document.createElement('div'); c.className='s'; c.textContent=s; el.append(a,b,c); box.append(el); }
+  const tb=$('ybody'); tb.textContent=''; let run=Y.total; const cur=ym(now);
+  for(const m of Y.months){
+    if(!m.cred && !m.n && !m.taken) continue;
+    run -= m.cred + m.cash;
+    const tr=document.createElement('tr'); if(ym(m.d)===cur) tr.className='cur';
+    const td=(txt,cls,small)=>{ const c=document.createElement('td'); if(cls) c.className=cls; c.textContent=txt; if(small){ const s=document.createElement('small'); s.textContent=small; c.append(s); } tr.append(c); };
+    td(fm.format(m.d), '', String(m.d.getFullYear()));
+    td(m.cred ? fmt(m.cred) : '–', 'n');
+    td(m.n ? fmt(m.cash) : '–', 'n', m.taken ? 'נלקח ' + fmt(m.taken) : m.n ? m.n + ' שבועות' : '');
+    td(fmt(Math.max(run,0)), 'n');
+    tb.append(tr);
+  }
+  $('yCap').textContent = 'השנה כוללת 52 תקציבים שבועיים (' + fmt(Y.cashYear) + ') ו-' + Math.round(Y.credYear/(Y.fx||1)) + ' ירידות אשראי (' + fmt(Y.credYear) + ').';
+}
+function render(animate){
+  for(const k of ['b','y','h','g']){ $('tab-'+k).setAttribute('aria-selected', tab===k); $('hero-'+k).hidden = tab!==k; }
+  $('box-g').hidden = tab!=='g'; renderSettings();
+  $('box-items').hidden = tab!=='b'; $('box-h').hidden = tab!=='h'; $('box-y').hidden = tab!=='y';
+  $('pickC').setAttribute('aria-pressed', mode==='c'); $('pickW').setAttribute('aria-pressed', mode!=='c');
+  $('editBtn').hidden = tab!=='b' || readOnly || !S; $('editBtn').setAttribute('aria-pressed', editing); $('editTxt').textContent = editing ? 'סיום' : 'עריכה';
+  $('dayBtn').hidden = readOnly;
+  const box = $('rows'); box.textContent=''; box.classList.remove('swap');
+  if(!S) return;
+  document.querySelector('main').classList.remove('loading');
+  for(const k of ['money','debt','billDay']){ const el=$(k); if(document.activeElement!==el) el.value = S[k]||''; el.disabled=readOnly; }
+  renderHistory();
+  const items = S.items.filter(i=>!!i.fixed===(mode==='c'));
+  if(!items.length){ const e=document.createElement('div'); e.className='empty'; e.textContent = mode==='c' ? 'אין חיובים קבועים. מוסיפים עם "שדה חדש".' : 'אין הוצאות במזומן. מוסיפים עם "שדה חדש".'; box.append(e); }
+  $('box-items').classList.toggle('editing', editing && !readOnly); $('box-items').classList.toggle('none', !items.length);
+  for(const it of items){
+    const row=document.createElement('div'); row.className='row'; row.dataset.id=it.id;
+    row.innerHTML='<div class="rv"><span class="rn"></span><span class="ra"><span class="n"></span><small class="calc"></small></span></div><div class="r1"><input class="name" aria-label="שם ההוצאה" placeholder="שם ההוצאה"><input class="amt" type="number" inputmode="decimal" min="0" step="any" aria-label="סכום לחודש" placeholder="0"><button class="chip cur" aria-label="מטבע"></button></div><div class="r2"><span class="calc"></span><button class="link del"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>מחיקה</button></div>';
+    const n=row.querySelector('.name'), a=row.querySelector('.amt'), c=row.querySelector('.cur'), rn=row.querySelector('.rn');
+    rn.textContent = it.name || 'ללא שם'; rn.classList.toggle('none', !it.name); row.querySelector('.ra .n').textContent = (it.cur==='usd' ? '$' : '₪') + num(it.amount).toLocaleString('en-US');
+    n.id='n-'+it.id; a.id='a-'+it.id; n.value=it.name; a.value=it.amount||''; n.disabled=a.disabled=readOnly;
+    c.textContent = it.cur==='usd' ? '$' : '₪';
+    n.oninput=()=>{ it.name=n.value; touch(); };
+    a.oninput=()=>{ it.amount=num(a.value); paint(); touch(); };
+    c.onclick=()=>{ if(readOnly)return; it.cur = it.cur==='usd'?'ils':'usd'; c.textContent=it.cur==='usd'?'$':'₪'; paint(); touch(); };
+    row.querySelector('.del').onclick=()=>{ if(readOnly)return; const i=S.items.indexOf(it); S.items.splice(i,1); undo={it,i}; render(); touch(); };
+    box.append(row);
+  }
+  if(animate){ void box.offsetWidth; box.classList.add('swap'); }
+  if(document.activeElement!==$('rate')) $('rate').value = S.rate;
+  $('rate').disabled = readOnly; $('add').hidden = readOnly;
+  paint();
+}
+function renderHistory(){
+  const box=$('hist'); box.textContent='';
+  const today=key(new Date()), f=new Intl.DateTimeFormat('he-IL',{day:'numeric',month:'numeric',year:'numeric'}), fx=sumOf(true);
+  const rows=[...S.takes.map(t=>({ts:t.ts,take:t})), ...(fx>0||Object.keys(S.charges).length ? chargeDates().map(c=>({ts:c.d.getTime(),charge:c})) : [])].sort((a,b)=>b.ts-a.ts);
+  if(!S.takes.length){ const e=document.createElement('div'); e.className='empty'; e.textContent='עוד לא סימנת משיכה. מסמנים "לקחתי" במסך התקציב, וכאן אפשר לתקן את התאריך.'; box.append(e); }
+  for(const r of rows){
+    const row=document.createElement('div'); row.className='hrow'+(r.charge&&r.charge.next?' next':'');
+    const main=document.createElement('div'); main.className='hmain';
+    const tt=document.createElement('div'); tt.className='ht'; const ss=document.createElement('div'); ss.className='hs'; main.append(tt,ss);
+    const amt=document.createElement('div'); amt.className='hamt n'; row.append(main,amt);
+    if(r.take){
+      const t=r.take, d=new Date(t.ts);
+      tt.textContent='משיכה שבועית'; ss.textContent=pName(key(shabbatOf(d)))||''; amt.textContent=fmt(t.amount);
+      const inp=document.createElement('input'); inp.type='date'; inp.className='hdate'; inp.id='hd-'+t.ts; inp.max=today; inp.value=key(d); inp.disabled=readOnly;
+      inp.setAttribute('aria-label','תאריך המשיכה של '+fmt(t.amount));
+      inp.onchange=()=>{ if(!/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value>today){ inp.value=key(new Date(t.ts)); return; }
+        const nd=fromKey(inp.value); let ts=nd.setHours(12,0,0,0); while(S.takes.some(x=>x!==t && x.ts===ts)) ts++;
+        freezePast(); t.ts=ts; t.week=key(shabbatOf(nd)); render(); touch(); };
+      row.append(inp);
+    } else {
+      const c=r.charge, a=S.charges[ym(c.d)]!=null && !c.next ? S.charges[ym(c.d)] : fx;
+      tt.textContent = c.next ? 'האשראי הבא' : 'ירידת אשראי'; ss.textContent='הוצאות קבועות'; amt.textContent=fmt(a);
+      const dt=document.createElement('div'); dt.className='hfix'; dt.textContent=f.format(c.d); row.append(dt);
+    }
+    box.append(row);
+  }
+}
+function setTab(t){ tab=t; try{ history.replaceState(null,'','#'+({b:'budget',h:'history',y:'year',g:'settings'})[t]); }catch(e){} render(); }
+for(const k of ['b','y','h','g']) $('tab-'+k).onclick=()=>setTab(k);
+/* settings: the design references are inert mockups, each mounted in its own shadow root so it cannot touch the app */
+/* optional libraries: loaded only when asked for, and everything must work when one does not arrive (lib() resolves null) */
+const LIBS={"gsap":["lib/gsap.min.js","gsap"],"flip":["lib/Flip.min.js","Flip"],"motionpath":["lib/MotionPathPlugin.min.js","MotionPathPlugin"],"morph":["lib/MorphSVGPlugin.min.js","MorphSVGPlugin"],"drawsvg":["lib/DrawSVGPlugin.min.js","DrawSVGPlugin"],"splittext":["lib/SplitText.min.js","SplitText"],"customease":["lib/CustomEase.min.js","CustomEase"],"custombounce":["lib/CustomBounce.min.js","CustomBounce"],"physics2d":["lib/Physics2DPlugin.min.js","Physics2DPlugin"],"draggable":["lib/Draggable.min.js","Draggable"],"inertia":["lib/InertiaPlugin.min.js","InertiaPlugin"],"zdog":["lib/zdog.min.js","Zdog"],"matter":["lib/matter.min.js","Matter"],"three":["lib/three.min.js","THREE"],"confetti":["lib/confetti.browser.js","confetti"]};
+const libP={};
+function lib(name){ if(!LIBS[name]) return Promise.resolve(null);
+  return libP[name] || (libP[name]=new Promise(res=>{ const s=document.createElement('script'); s.src=LIBS[name][0]; s.async=true; s.onload=()=>res(window[LIBS[name][1]]||null); s.onerror=()=>res(null); setTimeout(()=>res(window[LIBS[name][1]]||null),8000); document.head.append(s); })); }
+let FB={items:{},sent:0}, fbRef=null, fbReady=false, fbChain=Promise.resolve(), impCards=null;
+const ICON={v:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>',x:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',i:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>'};
+const VERD={v:'אישרת',x:'דחית',i:'ביקשת גרסה משופרת'};
+function fbSave(){ if(!fbRef) return; const snap=JSON.parse(JSON.stringify(FB)); status('שומר…'); fbChain=fbChain.then(()=>fbRef.set(snap)).then(()=>status('התגובה נשמרה'),()=>status('שמירת התגובה נכשלה. נסה שוב.')); }
+function buildImps(){
+  impCards=[]; const list=$('impList'); list.textContent='';
+  const tpls=[...document.querySelectorAll('template.tpl-imp')];
+  if(!tpls.length){ const e=document.createElement('div'); e.className='refhost'; list.append(e); }
+  tpls.forEach((tpl,n)=>{
+    const d=tpl.dataset, key=d.id+'@'+(d.v||'1'), el=document.createElement('article'); el.className='imp';
+    el.innerHTML='<div class="hd"><span class="num"></span><h3></h3><span class="ver"></span></div><p class="why"></p><p class="src" hidden></p><div class="reply" hidden></div><div class="refhost"></div>'
+      +'<div class="vote"><button data-k="v">'+ICON.v+'מאשר</button><button data-k="x">'+ICON.x+'לא</button><button data-k="i">'+ICON.i+'ליצור משופר</button></div>'
+      +'<div class="cmt" hidden><label></label><textarea></textarea><div class="rowb"><span class="need"></span><button class="savebtn">שמירה</button></div></div><div class="said"></div>';
+    el.querySelector('.num').textContent=(n+1)+'.'; el.querySelector('h3').textContent=d.title||''; el.querySelector('.why').textContent=d.why||'';
+    if(d.src){ const s=el.querySelector('.src'); s.hidden=false; s.append('מקור: '); if(/^https:\/\//.test(d.url||'')){ const a=document.createElement('a'); a.href=d.url; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent=d.src; s.append(a); } else s.append(d.src); }
+    if(Number(d.v)>1) el.querySelector('.ver').textContent='גרסה '+d.v;
+    if(d.reply){ const r=el.querySelector('.reply'); r.hidden=false; r.textContent='מה שיניתי לפי התגובה שלך: '+d.reply; }
+    const h=document.createElement('div'); h.attachShadow({mode:'open'}).innerHTML=tpl.innerHTML.trim(); el.querySelector('.refhost').append(h);
+    const js=(window.IMP_JS||{})[d.id]; if(js){ try{ Promise.resolve(js(h.shadowRoot, lib)).catch(()=>{}); }catch(e){} }
+    const ta=el.querySelector('textarea'), lab=el.querySelector('.cmt label'), sv=el.querySelector('.cmt .savebtn'); ta.id='fb-'+n; lab.htmlFor=ta.id;
+    const card={key,el,pending:null};
+    const sync=()=>{ sv.disabled = card.pending==='i' && !ta.value.trim(); el.querySelector('.need').textContent = card.pending==='i' ? 'חובה לכתוב מה לשפר ולמה' : 'לא חובה'; };
+    el.querySelectorAll('.vote button').forEach(b=>b.onclick=()=>{ if(!fbReady) return; const k=b.dataset.k, cur=FB.items[key];
+      card.pending=k; el.querySelector('.cmt').hidden=false; ta.value = cur ? cur.comment||'' : ta.value;
+      lab.textContent = k==='i' ? 'מה לשפר, ולמה?' : k==='v' ? 'למה זה טוב? (לא חובה)' : 'למה לא? (לא חובה)';
+      if(k!=='i'){ FB.items[key]={verdict:k,comment:ta.value.trim(),ts:Date.now()}; FB.sent=0; fbSave(); }
+      sync(); paintImps(); ta.focus(); });
+    ta.oninput=sync;
+    sv.onclick=()=>{ if(!fbReady||!card.pending) return; const c=ta.value.trim(); if(card.pending==='i' && !c) return;
+      FB.items[key]={verdict:card.pending,comment:c.slice(0,2000),ts:Date.now()}; FB.sent=0; card.pending=null; el.querySelector('.cmt').hidden=true; fbSave(); paintImps(); };
+    impCards.push(card); list.append(el);
+  });
+}
+function paintImps(){
+  if(!impCards) return; let done=0;
+  for(const c of impCards){ const cur=FB.items[c.key]; if(cur) done++;
+    c.el.querySelectorAll('.vote button').forEach(b=>{ b.disabled=!fbReady; b.setAttribute('aria-pressed', c.pending ? c.pending===b.dataset.k : !!cur && cur.verdict===b.dataset.k); });
+    c.el.querySelector('.said').textContent = cur ? VERD[cur.verdict] + (cur.comment ? ': ' + cur.comment : '') : ''; }
+  $('sendbar').hidden = !impCards.length;
+  $('sendTxt').textContent = !fbReady ? 'אפשר להגיב רק כשהדף פתוח ב-Claude ואת/ה מחובר/ת.' : FB.sent ? 'נשלח. כתוב ל-Claude בצ׳אט "סיימתי להגיב", והסוכן יעבור על התגובות.' : 'הגבת על ' + done + ' מתוך ' + impCards.length + '.';
+  $('sendBtn').disabled = !fbReady || !done || !!FB.sent; $('sendBtn').textContent = FB.sent ? 'נשלח' : 'סיימתי להגיב';
+}
+$('sendBtn').onclick=()=>{ if(!fbReady) return; FB.sent=Date.now(); fbSave(); paintImps(); };
+function renderSettings(){
+  $('set-gen').setAttribute('aria-selected', setK==='gen'); $('set-ref').setAttribute('aria-selected', setK==='ref');
+  $('set-gen-box').hidden = setK!=='gen'; $('set-ref-box').hidden = setK!=='ref';
+  if(tab!=='g' || setK!=='ref') return;
+  if(!impCards) buildImps();
+  paintImps();
+}
+$('set-gen').onclick=()=>{ setK='gen'; renderSettings(); }; $('set-ref').onclick=()=>{ setK='ref'; renderSettings(); };
+for(const [id,m] of [['pickC','c'],['pickW','w']]) $(id).onclick=()=>{ if(mode===m) return; mode=m; undo=null; render(true); };
+$('editBtn').onclick=()=>{ editing=!editing; render(); };
+$('dayBtn').onclick=()=>{ const e=$('dayEd'); e.hidden=!e.hidden; $('dayBtn').setAttribute('aria-expanded', !e.hidden); if(!e.hidden) $('billDay').focus(); };
+$('dayOk').onclick=()=>{ $('dayEd').hidden=true; $('dayBtn').setAttribute('aria-expanded', false); $('dayBtn').focus(); };
+/* optional polish, asked for at the first touch of the wallet: with GSAP the card and the note lean toward the finger or pointer. Without it the CSS press and light sweep still answer. */
+$('wallet').addEventListener('pointerover', function once(){ $('wallet').removeEventListener('pointerover', once);
+  if(!matchMedia('(prefers-reduced-motion:no-preference)').matches) return;
+  lib('gsap').then(g=>{ if(!g) return;
+    document.querySelectorAll('.pick').forEach(p=>{ const t=p.querySelector('.tl'), rx=g.quickTo(t,'rotationX',{duration:.4,ease:'power3.out'}), ry=g.quickTo(t,'rotationY',{duration:.4,ease:'power3.out'});
+      const lean=e=>{ const r=p.getBoundingClientRect(); ry(((e.clientX-r.left)/r.width-.5)*16); rx(-((e.clientY-r.top)/r.height-.5)*14); }, back=()=>{ rx(0); ry(0); };
+      p.addEventListener('pointermove',lean); p.addEventListener('pointerdown',lean);
+      for(const ev of ['pointerleave','pointerup','pointercancel']) p.addEventListener(ev,back); }); }); });
+for(const k of ['money','debt']) $(k).oninput=()=>{ if(!S) return; S[k]=num($(k).value); paint(); touch(); };
+$('billDay').onchange=()=>{ if(!S) return; S.billDay=Math.min(28,Math.max(1,Math.round(num($('billDay').value))||2)); $('billDay').value=S.billDay; render(); touch(); };
+$('add').onclick=()=>{ if(!S||readOnly) return; editing=true; const it={id:'i'+Date.now().toString(36),name:'',amount:0,cur:'ils',fixed:mode==='c'}; S.items.push(it); render(); touch(); $('n-'+it.id).focus(); };
+$('rate').oninput=()=>{ if(!S) return; S.rate=num($('rate').value); paint(); touch(); };
+
+/* ---------- weekly budget actions ---------- */
+function take(amount){ if(!S||readOnly||!(amount>0)) return; freezePast(); S.takes.push({ts:Date.now(),week:weekKey,amount:Math.round(amount*100)/100}); if(S.takes.length>400) S.takes.splice(0,S.takes.length-400); undo=null; render(); touch(); }
+$('takeAll').onclick=()=>{ if(S) take(ledger().avail); };
+$('partForm').onsubmit=e=>{ e.preventDefault(); const v=num($('partAmt').value); if(v>0){ take(v); $('partAmt').value=''; } };
+$('defer').onclick=()=>{ if(!S||readOnly) return; freezePast(); S.defers.push(Date.now()); if(S.defers.length>400) S.defers.shift(); undo=null; paint(); touch(); };
+$('undoAct').onclick=()=>{ if(!S||readOnly) return; const lt=S.takes.reduce((a,t)=>Math.max(a,t.ts||0),0), ld=S.defers.length?Math.max(...S.defers):0;
+  if(lt>=ld && lt) S.takes=S.takes.filter(t=>t.ts!==lt); else if(ld) S.defers=S.defers.filter(ts=>ts!==ld); render(); touch(); };
+
+/* ---------- saving ---------- */
+function status(text, withUndo){
+  const el=$('status'); el.textContent=text;
+  if(withUndo && undo){ const b=document.createElement('button'); b.textContent='ביטול המחיקה'; b.onclick=()=>{ S.items.splice(undo.i,0,undo.it); undo=null; render(); touch(); }; el.append(b); }
+}
+function touch(){ if(!S.start) S.start=weekKey; dirty=true; status('שומר…', true); clearTimeout(timer); timer=setTimeout(save,700); }
+async function save(){
+  if(!ref || saving){ if(saving) timer=setTimeout(save,400); return; }
+  saving=true; dirty=false;
+  try{ await ref.set(JSON.parse(JSON.stringify(S))); if(!dirty) status('נשמר', true); }
+  catch(e){ if(e && e.code==='invalid_argument'){ readOnly=true; render(); status('אין לך הרשאה לשנות כאן'); } else { dirty=true; status('השמירה נכשלה. ננסה שוב בשינוי הבא.'); } }
+  saving=false;
+}
+function normalize(d){
+  d = d || {};
+  const pick = (o,re) => { const r={}; if(o && typeof o==='object') for(const k in o) if(re.test(k)) r[k]=num(o[k]); return r; };
+  return { rate: num(d.rate) || 3.7,
+    items: (Array.isArray(d.items)?d.items:[]).map((x,i)=>({id:String(x.id||('i'+i)),name:String(x.name||''),amount:num(x.amount),cur:x.cur==='usd'?'usd':'ils',fixed:!!x.fixed})),
+    start: /^\d{4}-\d\d-\d\d$/.test(d.start||'') ? d.start : '',
+    grants: pick(d.grants,/^\d{4}-\d\d-\d\d$/), charges: pick(d.charges,/^\d{4}-\d\d$/),
+    money: num(d.money), debt: num(d.debt), billDay: Math.min(28,Math.max(1,Math.round(num(d.billDay))||2)),
+    takes: (Array.isArray(d.takes)?d.takes:[]).filter(t=>t && num(t.amount)).map(t=>({ts:Number(t.ts)||0,week:String(t.week||''),amount:num(t.amount)})),
+    defers: (Array.isArray(d.defers)?d.defers:[]).map(Number).filter(Boolean) };
+}
+
+tick(); setInterval(tick, 30000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) tick(); });
+addEventListener('resize',()=>place(lastPos));
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>place(lastPos));
+render();
+
+(async()=>{
+  const db = window.claude && window.claude.use ? await window.claude.use('db') : null;
+  if(!db){ $('partForm').hidden=true; $('rows').innerHTML='<div class="empty">ההוצאות נטענות רק כשהדף פתוח ב-Claude ואת/ה מחובר/ת.</div>'; $('add').hidden=true; $('rate').disabled=true; $('askBody').hidden=true; return; }
+  ref = db.doc('budget/main');
+  fbRef = db.doc('design/feedback');
+  fbRef.get().then(s=>{ const d=s.exists ? s.data() : null; if(d && d.items && typeof d.items==='object') FB={items:JSON.parse(JSON.stringify(d.items)),sent:Number(d.sent)||0}; fbReady=true; paintImps(); }, ()=>{ paintImps(); });
+  const slow = setTimeout(()=>{ if(!S) status('עוד לא הצלחנו להגיע לנתונים. ממשיכים לנסות.'); },10000);
+  ref.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache) clearTimeout(slow);
+    if(S && (dirty || saving || snap.metadata.hasPendingWrites)) return;
+    const next = normalize(snap.exists ? snap.data() : null);
+    if(S && JSON.stringify(next)===JSON.stringify(S)) return;
+    const first = !S; S = next; render(first); if($('status').textContent.startsWith('עוד לא')) status('');
+  }, e=>{ clearTimeout(slow); status('אין גישה לנתונים כרגע.'); });
+})();
+</script>
+</body>
+</html>

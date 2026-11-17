@@ -13,6 +13,7 @@
 | מחשבון עסק | https://bengueta.github.io/Core-Pages/business/ |
 | צבעים וטוקנים | https://bengueta.github.io/Core-Pages/brand-colors/ |
 | הצעת מחיר / חשבונית | https://bengueta.github.io/Core-Pages/quote/ |
+| תקציב שבועי (נשמר על המכשיר, עובד בלי אינטרנט) | https://bengueta.github.io/Core-Pages/budget/ |
 | **THE VAULT** | https://bengueta.github.io/Core-Pages/vault/ |
 | · פורום | https://bengueta.github.io/Core-Pages/vault/forum/ |
 | · בונה עמודים (סטודיו) | https://bengueta.github.io/Core-Pages/vault/build/ |
@@ -47,6 +48,16 @@
 - `vault/src/vault-engine/` — מנוע הבלוקים והסטודיו (`BlockRenderer`, `StudioApp`, `BlockEditor`, `PaletteEditor`, `blocks.tsx`, …).
 - `vault/scripts/discussion-to-page.mjs` — ממיר Discussion → עמוד (ולידציה + סניטציה).
 - נבנה לתוך `out/vault/` ע"י [`scripts/build-pages.mjs`](scripts/build-pages.mjs) (אחרי בניית Next).
+
+---
+
+## תקציב שבועי (`public/budget/`)
+
+כלי עצמאי ומבודד: קבצים סטטיים מוכנים ש-Next מעתיק כמו שהם ל-`out/budget/`. אין לו קשר לקוד של שאר הכלים ואין לו כרטיס בדף הבית; נכנסים בקישור ישיר.
+
+- **נתונים:** נשמרים רק בדפדפן של המשתמש (`localStorage`, מפתחות שמתחילים ב-`budget:`). שום דבר לא נשלח לשרת.
+- **בלי אינטרנט:** `sw.js` שומר את הדף על המכשיר אחרי הפתיחה הראשונה. אפשר להוסיף למסך הבית (`manifest.webmanifest`).
+- **עדכון גרסה:** מחליפים את הקבצים בתיקייה ומשנים את שם ה-`CACHE` בראש `sw.js`, כדי שמכשירים שכבר התקינו יקבלו את הגרסה החדשה.
 
 ---
 
